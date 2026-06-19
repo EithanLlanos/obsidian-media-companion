@@ -5,6 +5,7 @@ import { getShape } from "../model/types/shape";
 import { hexToRgb, rgbToHsl, isColorWithinThreshold } from "../util/color";
 import { VIEW_TYPE_SIDECAR } from "./sidecar-view";
 import type { MediaCompanionSettings } from "../settings";
+import { BulkEditModal } from "./bulk-edit-modal";
 
 export const BASES_VIEW_TYPE_WATERFALL = "mc-waterfall";
 
@@ -29,6 +30,7 @@ interface LayoutItem {
 	propsMeasured: boolean;
 	propsHeight: number;
 	el: HTMLElement | null;
+	selected?: boolean;
 }
 
 /**
@@ -41,7 +43,9 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 
 	private scrollEl!: HTMLElement;
 	private containerEl!: HTMLElement;
+	private actionBarEl!: HTMLElement;
 	private resizeObserver!: ResizeObserver;
+	private lastSelectedIdx?: number;
 
 	private layoutItems: LayoutItem[] = [];
 	private columnHeights: number[] = [];
@@ -71,6 +75,8 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 		super(controller);
 		this.getPluginSettings = getPluginSettings;
 
+		this.actionBarEl = parentEl.createDiv({ cls: "mc-waterfall-action-bar" });
+		this.actionBarEl.style.display = "none";
 		this.scrollEl = parentEl.createDiv({ cls: "mc-waterfall-scroll" });
 		this.containerEl = this.scrollEl.createDiv({ cls: "mc-waterfall-container" });
 
@@ -503,6 +509,11 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 		const el = this.containerEl.createDiv({ cls: "mc-waterfall-item" });
 		item.el = el;
 
+		if (item.selected) el.classList.add("is-selected");
+
+		const cb = el.createDiv({ cls: "mc-waterfall-checkbox" });
+		if (item.selected) cb.classList.add("is-checked");
+
 		el.style.top = `${item.y}px`;
 		el.style.left = `${item.x}px`;
 		el.style.width = `${this.actualColWidth}px`;
@@ -607,6 +618,41 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 
 		el.addEventListener("click", (evt) => {
 			if (evt.button !== 0 && evt.button !== 1) return;
+			
+			if (evt.target === cb || evt.shiftKey) {
+				evt.preventDefault();
+				evt.stopPropagation();
+				
+				const idx = this.layoutItems.indexOf(item);
+				
+				if (evt.shiftKey && this.lastSelectedIdx !== undefined && this.lastSelectedIdx !== -1) {
+					const start = Math.min(this.lastSelectedIdx, idx);
+					const end = Math.max(this.lastSelectedIdx, idx);
+					
+					for (let i = start; i <= end; i++) {
+						const it = this.layoutItems[i];
+						it.selected = true;
+						if (it.el) {
+							it.el.classList.add("is-selected");
+							const checkbox = it.el.querySelector(".mc-waterfall-checkbox");
+							if (checkbox) checkbox.classList.add("is-checked");
+						}
+					}
+				} else {
+					item.selected = !item.selected;
+					if (item.selected) {
+						el.classList.add("is-selected");
+						cb.classList.add("is-checked");
+						this.lastSelectedIdx = idx;
+					} else {
+						el.classList.remove("is-selected");
+						cb.classList.remove("is-checked");
+						this.lastSelectedIdx = idx;
+					}
+				}
+				this.updateActionBar();
+				return;
+			}
 			
 			evt.preventDefault();
 
@@ -1044,6 +1090,38 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 			}
 		}
 		this.syncDOM();
+	}
+
+	private updateActionBar() {
+		const selectedItems = this.layoutItems.filter((i) => i.selected);
+		if (selectedItems.length > 0) {
+			this.actionBarEl.style.display = "flex";
+			this.actionBarEl.empty();
+
+			this.actionBarEl.createDiv({ cls: "mc-waterfall-action-bar-text", text: `${selectedItems.length} items selected` });
+
+			const btnContainer = this.actionBarEl.createDiv({ cls: "mc-waterfall-action-bar-buttons" });
+
+			const editBtn = btnContainer.createEl("button", { text: "Edit Properties" });
+			editBtn.addEventListener("click", () => {
+				new BulkEditModal(this.app, selectedItems).open();
+			});
+
+			const clearBtn = btnContainer.createEl("button", { text: "Clear Selection" });
+			clearBtn.addEventListener("click", () => {
+				for (const item of this.layoutItems) {
+					item.selected = false;
+					if (item.el) {
+						item.el.classList.remove("is-selected");
+						const cb = item.el.querySelector(".mc-waterfall-checkbox");
+						if (cb) cb.classList.remove("is-checked");
+					}
+				}
+				this.updateActionBar();
+			});
+		} else {
+			this.actionBarEl.style.display = "none";
+		}
 	}
 
 	onunload(): void {

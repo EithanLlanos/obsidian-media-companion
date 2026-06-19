@@ -253,3 +253,70 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+
+.mc-waterfall-checkbox {
+	position: absolute;
+	top: 8px;
+	left: 8px;
+	width: 20px;
+	height: 20px;
+	background: var(--background-primary);
+	border: 1px solid var(--text-muted);
+	border-radius: 4px;
+	opacity: 0;
+	transition: opacity 0.2s ease, background 0.2s ease;
+	z-index: 3;
+	cursor: pointer;
+}
+
+.mc-waterfall-item:hover .mc-waterfall-checkbox,
+.mc-waterfall-item.is-selected .mc-waterfall-checkbox {
+	opacity: 1;
+}
+
+.mc-waterfall-checkbox.is-checked {
+	background: var(--interactive-accent);
+	border-color: var(--interactive-accent);
+}
+
+.mc-waterfall-checkbox.is-checked::after {
+	content: '';
+	position: absolute;
+	top: 2px;
+	left: 6px;
+	width: 5px;
+	height: 10px;
+	border: solid var(--text-on-accent);
+	border-width: 0 2px 2px 0;
+	transform: rotate(45deg);
+}
+
+.mc-waterfall-item.is-selected {
+	box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+
+.mc-waterfall-action-bar {
+	position: absolute;
+	bottom: 16px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: var(--background-secondary-alt);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 12px 24px;
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	z-index: 100;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.mc-waterfall-action-bar-text {
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.mc-waterfall-action-bar-buttons {
+	display: flex;
+	gap: 8px;
+}

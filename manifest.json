@@ -1,6 +1,6 @@
 {
-	"id": "media-companion",
-	"name": "Media Companion",
+	"id": "media-companion-v2",
+	"name": "Media Companion V2",
 	"version": "1.2.2",
 	"minAppVersion": "1.11.5",
 	"description": "Creates a searchable gallery and sidecar files for attachments such as images and videos. The sidecar files allow you to add notes and tags to your media files.",
