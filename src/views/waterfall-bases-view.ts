@@ -6,6 +6,7 @@ import { hexToRgb, rgbToHsl, isColorWithinThreshold } from "../util/color";
 import { VIEW_TYPE_SIDECAR } from "./sidecar-view";
 import type { MediaCompanionSettings } from "../settings";
 import { BulkEditModal } from "./bulk-edit-modal";
+import { RenameModal, MoveModal } from "./action-modals";
 
 export const BASES_VIEW_TYPE_WATERFALL = "mc-waterfall";
 
@@ -636,6 +637,22 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 					.onClick(() => {
 						// @ts-ignore
 						this.app.showInFolder(item.mediaFile.path);
+					})
+			);
+
+			menu.addItem((mi) =>
+				mi.setTitle("Rename")
+					.setIcon("pencil")
+					.onClick(() => {
+						new RenameModal(this.app, item.mediaFile, item.sidecarFile).open();
+					})
+			);
+
+			menu.addItem((mi) =>
+				mi.setTitle("Move")
+					.setIcon("folder-input")
+					.onClick(() => {
+						new MoveModal(this.app, item.mediaFile, item.sidecarFile).open();
 					})
 			);
 
