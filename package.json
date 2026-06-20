@@ -1,5 +1,5 @@
 {
-	"name": "media-companion-v2",
+	"name": "obsidian-media-companion",
 	"version": "1.2.2",
 	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
 	"main": "main.js",
