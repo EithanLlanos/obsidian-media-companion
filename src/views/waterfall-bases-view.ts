@@ -602,9 +602,41 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 			const menu = new Menu();
 
 			menu.addItem((mi) =>
-				mi.setTitle("Copy")
-					.setIcon("copy")
+				mi.setTitle("Copy Image (Content)")
+					.setIcon("image")
 					.onClick(() => void this.copyMediaToClipboard(item.mediaFile))
+			);
+
+			menu.addItem((mi) =>
+				mi.setTitle("Copy Obsidian Link")
+					.setIcon("link")
+					.onClick(() => {
+						navigator.clipboard.writeText(`![[${item.mediaFile.path}]]`);
+						new Notice("Link copied to clipboard");
+					})
+			);
+
+			menu.addItem((mi) =>
+				mi.setTitle("Reveal in Navigation")
+					.setIcon("folder")
+					.onClick(() => {
+						// @ts-ignore
+						const explorerLeaf = this.app.workspace.getLeavesOfType("file-explorer")[0];
+						if (explorerLeaf) {
+							this.app.workspace.revealLeaf(explorerLeaf);
+							// @ts-ignore
+							explorerLeaf.view.revealInFolder(item.mediaFile);
+						}
+					})
+			);
+
+			menu.addItem((mi) =>
+				mi.setTitle("Show in System Explorer")
+					.setIcon("folder-open")
+					.onClick(() => {
+						// @ts-ignore
+						this.app.showInFolder(item.mediaFile.path);
+					})
 			);
 
 			menu.addItem((mi) =>
