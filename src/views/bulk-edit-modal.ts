@@ -107,14 +107,21 @@ export class BulkEditModal extends Modal {
 			const cache = this.app.metadataCache.getFileCache(file);
 			if (cache?.frontmatter) {
 				for (const [key, rawVal] of Object.entries(cache.frontmatter)) {
-					const val = Array.isArray(rawVal) ? rawVal.filter(x => x !== null && x !== undefined && x !== "") : rawVal;
-					if (key === "position" || val === null || val === undefined || val === "" || (Array.isArray(val) && val.length === 0)) continue;
+					if (key === "position") continue;
 					if (!this.uniqueProps.has(key)) {
 						this.uniqueProps.set(key, { values: new Set(), rawValues: [] });
 					}
-					const strVal = typeof val === "object" ? JSON.stringify(val) : String(val);
-					this.uniqueProps.get(key)!.values.add(strVal);
+					
+					const val = Array.isArray(rawVal) ? rawVal.filter(x => x !== null && x !== undefined && x !== "") : rawVal;
+					
 					this.uniqueProps.get(key)!.rawValues.push(val);
+					
+					if (val === null || val === undefined || val === "" || (Array.isArray(val) && val.length === 0)) {
+						this.uniqueProps.get(key)!.values.add("");
+					} else {
+						const strVal = typeof val === "object" ? JSON.stringify(val) : String(val);
+						this.uniqueProps.get(key)!.values.add(strVal);
+					}
 				}
 			}
 		}
@@ -300,7 +307,7 @@ export class BulkEditModal extends Modal {
 			if (row.isMixed && !row.value) {
 				valueInput.setPlaceholder("(Mixed values)");
 			} else {
-				valueInput.setPlaceholder("Value");
+				valueInput.setPlaceholder("");
 			}
 			valueInputEl = valueInput.inputEl;
 		} else {
@@ -321,7 +328,7 @@ export class BulkEditModal extends Modal {
 			if (row.isMixed && !row.value) {
 				valueInput.setPlaceholder("(Mixed values)");
 			} else {
-				valueInput.setPlaceholder("Value");
+				valueInput.setPlaceholder("");
 			}
 			valueInputEl = valueInput.inputEl;
 		}
