@@ -1,4 +1,4 @@
-import { App, Modal, Setting, AbstractInputSuggest } from "obsidian";
+import { App, Modal, Setting, AbstractInputSuggest, TextComponent, DropdownComponent, TextAreaComponent } from "obsidian";
 import type { TFile } from "obsidian";
 
 interface LayoutItem {
@@ -6,10 +6,19 @@ interface LayoutItem {
 	sidecarFile: TFile | null;
 }
 
+interface PropertyRowState {
+	name: string;
+	originalName: string;
+	value: string;
+	action: "Ignore" | "Replace" | "Append" | "Remove";
+	isMixed: boolean;
+	isNew: boolean;
+	type: string;
+}
+
 export class BulkEditModal extends Modal {
 	private selectedItems: LayoutItem[];
-	private propName: string = "";
-	private propValue: string = "";
+	private rows: PropertyRowState[] = [];
 
 	constructor(app: App, selectedItems: LayoutItem[]) {
 		super(app);
@@ -17,43 +26,206 @@ export class BulkEditModal extends Modal {
 	}
 
 	onOpen() {
+		this.aggregateProperties();
+		this.renderUI();
+	}
+
+	private aggregateProperties() {
+		const uniqueProps = new Map<string, { values: Set<string>, rawValues: any[] }>();
+
+		for (const item of this.selectedItems) {
+			const file = item.sidecarFile || item.mediaFile;
+			const cache = this.app.metadataCache.getFileCache(file);
+			if (cache?.frontmatter) {
+				for (const [key, val] of Object.entries(cache.frontmatter)) {
+					if (key === "position") continue;
+					if (!uniqueProps.has(key)) {
+						uniqueProps.set(key, { values: new Set(), rawValues: [] });
+					}
+					const strVal = typeof val === "object" ? JSON.stringify(val) : String(val);
+					uniqueProps.get(key)!.values.add(strVal);
+					uniqueProps.get(key)!.rawValues.push(val);
+				}
+			}
+		}
+
+		this.rows = [];
+		const typeManager = (this.app as any).metadataTypeManager;
+
+		for (const [key, data] of uniqueProps.entries()) {
+			const isMixed = data.values.size > 1 || data.rawValues.length < this.selectedItems.length;
+			let initialValue = "";
+			if (!isMixed && data.rawValues.length > 0) {
+				const val = data.rawValues[0];
+				if (Array.isArray(val)) {
+					initialValue = val.join(", ");
+				} else {
+					initialValue = String(val);
+				}
+			}
+
+			let currentType = typeManager?.getAssignedType?.(key)?.type || typeManager?.getProperties?.()?.[key]?.type || "text";
+
+			this.rows.push({
+				name: key,
+				originalName: key,
+				value: initialValue,
+				action: "Ignore",
+				isMixed,
+				isNew: false,
+				type: currentType
+			});
+		}
+	}
+
+	private renderUI() {
 		const { contentEl } = this;
 		contentEl.empty();
+		contentEl.addClass("bulk-properties-manager");
 
-		contentEl.createEl("h2", { text: `Bulk Edit (${this.selectedItems.length} items)` });
+		contentEl.createEl("h2", { text: `Bulk Properties Manager (${this.selectedItems.length} items)` });
 
-		new Setting(contentEl)
-			.setName("Property Name")
-			.setDesc("The frontmatter property to update or add")
-			.addText(text => {
-				text.setPlaceholder("e.g. tags")
-					.onChange(value => {
-						this.propName = value;
+		const container = contentEl.createDiv("bulk-edit-container");
+		container.style.maxHeight = "400px";
+		container.style.overflowY = "auto";
+		container.style.paddingRight = "10px";
+
+		this.rows.forEach(row => this.renderRow(container, row));
+
+		const addBtnContainer = contentEl.createDiv();
+		addBtnContainer.style.marginTop = "10px";
+
+		new Setting(addBtnContainer)
+			.addButton(btn => btn
+				.setButtonText("+ Add Property")
+				.onClick(() => {
+					this.rows.push({
+						name: "",
+						originalName: "",
+						value: "",
+						action: "Replace",
+						isMixed: false,
+						isNew: true,
+						type: "text"
 					});
-				new PropertySuggest(this.app, text.inputEl, this.selectedItems);
-			});
+					this.renderUI();
+				})
+			);
 
-		new Setting(contentEl)
-			.setName("New Value")
-			.setDesc("The value to set for the property")
-			.addTextArea(text => {
-				text.setPlaceholder("e.g. #landscape")
-					.onChange(value => {
-						this.propValue = value;
-					});
-				text.inputEl.rows = 4;
-				new ValueSuggest(this.app, text.inputEl, () => this.propName);
-			});
+		const actionsContainer = contentEl.createDiv();
+		actionsContainer.style.marginTop = "20px";
+		actionsContainer.style.borderTop = "1px solid var(--background-modifier-border)";
+		actionsContainer.style.paddingTop = "10px";
 
-		new Setting(contentEl)
+		new Setting(actionsContainer)
 			.addButton(btn => btn
 				.setButtonText("Apply")
 				.setCta()
-				.onClick(() => {
-					this.applyBulkEdit();
+				.onClick(async () => {
+					await this.applyBulkEdit();
 					this.close();
 				})
 			);
+	}
+
+	private renderRow(container: HTMLElement, row: PropertyRowState) {
+		const rowEl = container.createDiv("bulk-edit-row");
+		rowEl.style.display = "flex";
+		rowEl.style.alignItems = "center";
+		rowEl.style.gap = "10px";
+		rowEl.style.marginBottom = "10px";
+
+		// Property Name
+		if (row.isNew) {
+			const nameInput = new TextComponent(rowEl)
+				.setPlaceholder("Property name")
+				.setValue(row.name)
+				.onChange(v => {
+					row.name = v;
+				});
+			nameInput.inputEl.style.width = "120px";
+			new PropertySuggest(this.app, nameInput.inputEl, this.selectedItems);
+		} else {
+			const nameSpan = rowEl.createSpan({ text: row.name, cls: "bulk-edit-prop-name" });
+			nameSpan.style.width = "120px";
+			nameSpan.style.overflow = "hidden";
+			nameSpan.style.textOverflow = "ellipsis";
+			nameSpan.style.whiteSpace = "nowrap";
+			nameSpan.title = row.name;
+		}
+
+		// Global Type Dropdown
+		const typeOptions: Record<string, string> = {
+			"text": "Text",
+			"multitext": "List",
+			"number": "Number",
+			"checkbox": "Checkbox",
+			"date": "Date",
+			"datetime": "Date & time",
+			"aliases": "Aliases",
+			"tags": "Tags"
+		};
+
+		let currentType = row.type;
+		if (!typeOptions[currentType]) currentType = "text";
+
+		const typeDropdown = new DropdownComponent(rowEl)
+			.addOptions(typeOptions)
+			.setValue(currentType)
+			.onChange(v => {
+				row.type = v;
+				if (row.name) {
+					const typeManager = (this.app as any).metadataTypeManager;
+					typeManager?.setType?.(row.name, v);
+				}
+				this.updateActionOptions(actionDropdown, row);
+			});
+		typeDropdown.selectEl.style.width = "110px";
+
+		// Action Dropdown
+		const actionDropdown = new DropdownComponent(rowEl);
+		this.updateActionOptions(actionDropdown, row);
+		actionDropdown.onChange(v => {
+			row.action = v as any;
+		});
+
+		// Value textarea
+		const valueInput = new TextAreaComponent(rowEl)
+			.setValue(row.value)
+			.onChange(v => {
+				row.value = v;
+				if (row.action === "Ignore") {
+					row.action = "Replace";
+					actionDropdown.setValue("Replace");
+				}
+			});
+		valueInput.inputEl.rows = 1;
+		valueInput.inputEl.style.flex = "1";
+		valueInput.inputEl.style.resize = "vertical";
+		valueInput.inputEl.style.minHeight = "30px";
+
+		if (row.isMixed && !row.value) {
+			valueInput.setPlaceholder("(Mixed values)");
+		} else {
+			valueInput.setPlaceholder("Value");
+		}
+
+		new ValueSuggest(this.app, valueInput.inputEl, () => row.name);
+	}
+
+	private updateActionOptions(dropdown: DropdownComponent, row: PropertyRowState) {
+		dropdown.selectEl.empty();
+		dropdown.addOption("Ignore", "Ignore");
+		dropdown.addOption("Replace", "Replace");
+		if (["multitext", "tags", "aliases"].includes(row.type)) {
+			dropdown.addOption("Append", "Append");
+		}
+		dropdown.addOption("Remove", "Remove");
+		
+		if (row.action === "Append" && !["multitext", "tags", "aliases"].includes(row.type)) {
+			row.action = "Replace";
+		}
+		dropdown.setValue(row.action);
 	}
 
 	onClose() {
@@ -62,13 +234,64 @@ export class BulkEditModal extends Modal {
 	}
 
 	private async applyBulkEdit() {
-		if (!this.propName) return;
+		const activeRows = this.rows.filter(r => r.name && r.action !== "Ignore");
+		if (activeRows.length === 0) return;
+
 		for (const item of this.selectedItems) {
 			const file = item.sidecarFile || item.mediaFile;
 			await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-				frontmatter[this.propName] = this.propValue;
+				for (const row of activeRows) {
+					if (row.action === "Remove") {
+						delete frontmatter[row.name];
+						continue;
+					}
+
+					const parsed = this.parseValue(row.value, row.type);
+
+					if (row.action === "Replace") {
+						frontmatter[row.name] = parsed;
+					} else if (row.action === "Append") {
+						const current = frontmatter[row.name];
+						if (Array.isArray(current)) {
+							if (Array.isArray(parsed)) {
+								frontmatter[row.name] = [...current, ...parsed];
+							} else {
+								frontmatter[row.name] = [...current, parsed];
+							}
+						} else if (current !== undefined && current !== null) {
+							if (Array.isArray(parsed)) {
+								frontmatter[row.name] = [current, ...parsed];
+							} else {
+								frontmatter[row.name] = [current, parsed];
+							}
+						} else {
+							frontmatter[row.name] = parsed;
+						}
+
+						if (["tags", "aliases", "multitext"].includes(row.type)) {
+							if (Array.isArray(frontmatter[row.name])) {
+								frontmatter[row.name] = [...new Set(frontmatter[row.name])];
+							}
+						}
+					}
+				}
 			});
 		}
+	}
+
+	private parseValue(val: string, type: string): any {
+		if (["multitext", "tags", "aliases"].includes(type)) {
+			return val.split(/[,\n]/).map(s => s.trim()).filter(s => s.length > 0);
+		}
+		if (type === "number") {
+			const n = Number(val);
+			return isNaN(n) ? val : n;
+		}
+		if (type === "checkbox") {
+			const lower = val.toLowerCase().trim();
+			return lower === "true" || lower === "1" || lower === "yes";
+		}
+		return val;
 	}
 }
 
