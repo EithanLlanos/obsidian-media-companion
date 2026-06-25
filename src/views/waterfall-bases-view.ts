@@ -215,6 +215,8 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 			if (rgb) targetHsl = rgbToHsl(rgb[0], rgb[1], rgb[2]);
 		}
 
+		const previouslySelectedPaths = new Set(this.layoutItems.filter(i => i.selected).map(i => i.mediaFile.path));
+
 		this.clearDOM();
 		this.layoutItems = [];
 
@@ -265,6 +267,7 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 					colors: meta.colors,
 					col: 0, x: 0, y: 0, itemHeight: 0,
 					measured: false, propsMeasured: false, propsHeight: 0, el: null,
+					selected: previouslySelectedPaths.has(mediaFile.path),
 				};
 				this.layoutItems.push(item);
 				itemByMediaPath.set(mediaFile.path, item);
@@ -320,6 +323,7 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 						colors: meta.colors,
 						col: 0, x: 0, y: 0, itemHeight: 0,
 						measured: false, propsMeasured: false, propsHeight: 0, el: null,
+						selected: previouslySelectedPaths.has(mediaFile.path),
 					});
 					remaining--;
 				}
@@ -339,6 +343,7 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 
 		this.computePositions();
 		this.syncDOM();
+		this.updateActionBar();
 	}
 
 	private get footerHeight(): number {
