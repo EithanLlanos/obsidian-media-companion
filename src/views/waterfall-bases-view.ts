@@ -668,7 +668,9 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 		el.addEventListener("click", (evt) => {
 			if (evt.button !== 0 && evt.button !== 1) return;
 			
-			if (evt.target === cb || evt.shiftKey) {
+			const hasSelectedItems = this.layoutItems.some(i => i.selected);
+
+			if (evt.target === cb || evt.shiftKey || hasSelectedItems) {
 				evt.preventDefault();
 				evt.stopPropagation();
 				
@@ -700,6 +702,19 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 					}
 				}
 				this.updateActionBar();
+				
+				if (evt.target !== cb && !evt.shiftKey) {
+					if (Keymap.isModEvent(evt)) {
+						const newLeaf = this.app.workspace.getLeaf("tab");
+						void newLeaf.setViewState({
+							type: VIEW_TYPE_SIDECAR,
+							state: { file: item.mediaFile.path },
+						});
+						this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
+					} else {
+						void this.openInSidebar(item.mediaFile);
+					}
+				}
 				return;
 			}
 			
@@ -1150,6 +1165,19 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 			this.actionBarEl.createDiv({ cls: "mc-waterfall-action-bar-text", text: `${selectedItems.length} items selected` });
 
 			const btnContainer = this.actionBarEl.createDiv({ cls: "mc-waterfall-action-bar-buttons" });
+
+			const selectAllBtn = btnContainer.createEl("button", { text: "Select All", cls: "mc-waterfall-btn" });
+			selectAllBtn.addEventListener("click", () => {
+				for (const item of this.layoutItems) {
+					item.selected = true;
+					if (item.el) {
+						item.el.classList.add("is-selected");
+						const cb = item.el.querySelector(".mc-waterfall-checkbox");
+						if (cb) cb.classList.add("is-checked");
+					}
+				}
+				this.updateActionBar();
+			});
 
 			const editBtn = btnContainer.createEl("button", { text: "Edit Properties" });
 			editBtn.addEventListener("click", () => {
