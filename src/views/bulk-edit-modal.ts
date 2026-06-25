@@ -126,13 +126,22 @@ export class BulkEditModal extends Modal {
 			if (!isMixed && data.rawValues.length > 0) {
 				const val = data.rawValues[0];
 				if (Array.isArray(val)) {
-					initialValue = val.join(", ");
+					initialValue = val.map((v: any) => typeof v === "object" ? JSON.stringify(v) : String(v)).join(", ");
+				} else if (typeof val === "object") {
+					initialValue = JSON.stringify(val);
 				} else {
 					initialValue = String(val);
 				}
 			}
 
-			let currentType = typeManager?.getAssignedType?.(key)?.type || typeManager?.getProperties?.()?.[key]?.type || "text";
+			let currentType = typeManager?.getAssignedType?.(key)?.type || typeManager?.getProperties?.()?.[key]?.type;
+			if (!currentType) {
+				if (data.rawValues.some(v => Array.isArray(v))) {
+					currentType = "multitext";
+				} else {
+					currentType = "text";
+				}
+			}
 
 			this.rows.push({
 				name: key,
@@ -247,6 +256,7 @@ export class BulkEditModal extends Modal {
 					typeManager?.setType?.(row.name, v);
 				}
 				this.updateActionOptions(actionDropdown, row);
+				this.renderUI();
 			});
 		typeDropdown.selectEl.style.width = "110px";
 
