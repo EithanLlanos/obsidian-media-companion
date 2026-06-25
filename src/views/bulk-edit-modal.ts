@@ -106,8 +106,9 @@ export class BulkEditModal extends Modal {
 			const file = item.sidecarFile || item.mediaFile;
 			const cache = this.app.metadataCache.getFileCache(file);
 			if (cache?.frontmatter) {
-				for (const [key, val] of Object.entries(cache.frontmatter)) {
-					if (key === "position" || val === null || val === undefined) continue;
+				for (const [key, rawVal] of Object.entries(cache.frontmatter)) {
+					const val = Array.isArray(rawVal) ? rawVal.filter(x => x !== null && x !== undefined && x !== "") : rawVal;
+					if (key === "position" || val === null || val === undefined || val === "" || (Array.isArray(val) && val.length === 0)) continue;
 					if (!this.uniqueProps.has(key)) {
 						this.uniqueProps.set(key, { values: new Set(), rawValues: [] });
 					}
@@ -499,17 +500,36 @@ class ValueSuggest extends AbstractInputSuggest<string> {
 		}
 
 		if (this.uniqueProps) {
-			const propData = this.uniqueProps.get(this.getPropName());
+			const propName = this.getPropName();
+			let vaultValues: string[] = [];
+			try {
+				const cache = this.app.metadataCache as any;
+				if (typeof cache.getFrontmatterPropertyValuesForKey === 'function') {
+					vaultValues = cache.getFrontmatterPropertyValuesForKey(propName) || [];
+				}
+			} catch(e) {}
+
+			const propData = this.uniqueProps.get(propName);
+			const allValues = new Set<string>();
+			
+			vaultValues.forEach(v => allValues.add(v));
+
 			if (propData) {
-				const suggestions = Array.from(propData.values)
-					.map(v => {
-						try { return JSON.parse(v); } catch(e) { return v; }
-					})
-					.filter(v => typeof v === "string")
-					.filter(v => v.toLowerCase().includes(searchLower))
-					.slice(0, 20);
-				return suggestions;
+				propData.values.forEach(v => {
+					try { 
+						const parsed = JSON.parse(v);
+						if (typeof parsed === "string") allValues.add(parsed);
+						else allValues.add(v);
+					} catch(e) { 
+						allValues.add(v); 
+					}
+				});
 			}
+
+			const suggestions = Array.from(allValues)
+				.filter(v => typeof v === "string" && v.toLowerCase().includes(searchLower))
+				.slice(0, 20);
+			return suggestions as string[];
 		}
 
 		return [];
