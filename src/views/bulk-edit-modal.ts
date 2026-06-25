@@ -39,6 +39,12 @@ class TokenInput {
 			}
 		});
 
+		this.inputEl.addEventListener("blur", () => {
+			if (this.inputEl.value.trim()) {
+				this.addToken();
+			}
+		});
+
 		this.renderTokens();
 	}
 
@@ -584,6 +590,14 @@ class ValueSuggest extends AbstractInputSuggest<string> {
 				const startIdx = textBeforeCursor.length - tagMatch[1].length;
 				const cleanSuggestion = suggestion.startsWith("#") ? suggestion.substring(1) : suggestion;
 				newValue = textBeforeCursor.substring(0, startIdx) + cleanSuggestion + textAfterCursor;
+			}
+		} else {
+			const tagMatch = textBeforeCursor.match(/([^,\s]*)$/);
+			if (tagMatch) {
+				const startIdx = textBeforeCursor.length - tagMatch[1].length;
+				newValue = textBeforeCursor.substring(0, startIdx) + suggestion + textAfterCursor;
+			} else {
+				newValue = textBeforeCursor + suggestion + textAfterCursor;
 			}
 		}
 
