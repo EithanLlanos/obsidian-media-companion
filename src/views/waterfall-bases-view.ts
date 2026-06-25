@@ -808,53 +808,57 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 
 		if (mediaType === MediaTypes.Image) {
 			const isGif = item.mediaFile.extension.toLowerCase() === "gif";
-			const img = mc.createEl("img", {
-				attr: { src: resourcePath, alt: item.mediaFile.basename },
-			});
-
-			let staticSrc: string | null = null;
-
-			img.addEventListener("load", () => {
-				onSized(img.naturalWidth, img.naturalHeight);
-				
-				// If it's a GIF and we haven't generated the static thumbnail yet
-				if (isGif && !staticSrc) {
-					// We must fetch the binary to avoid Tainted Canvas errors from app://local
-					this.app.vault.readBinary(item.mediaFile).then((data) => {
-						const blob = new Blob([data], { type: "image/gif" });
-						const url = URL.createObjectURL(blob);
-						const tempImg = new Image();
-						
-						tempImg.onload = () => {
-							const canvas = document.createElement("canvas");
-							canvas.width = tempImg.naturalWidth;
-							canvas.height = tempImg.naturalHeight;
-							const ctx = canvas.getContext("2d");
-							
-							if (ctx) {
-								ctx.drawImage(tempImg, 0, 0);
-								staticSrc = canvas.toDataURL("image/png");
-								// Swap to static image immediately to "pause" it, unless we are currently hovering
-								if (!img.matches(":hover")) {
-									img.src = staticSrc;
-								}
-							}
-							URL.revokeObjectURL(url);
-						};
-						
-						tempImg.src = url;
-					}).catch(e => console.error("Failed to generate static GIF thumbnail", e));
-				}
-			});
-
+			
+			// For GIFs, we wrap them in a relative container to stack the canvas on top
 			if (isGif) {
-				// Emulate video playback on hover
-				img.addEventListener("mouseenter", () => {
-					if (staticSrc) img.src = resourcePath;
+				mc.style.position = "relative";
+				
+				const img = mc.createEl("img", {
+					attr: { src: resourcePath, alt: item.mediaFile.basename },
 				});
-				img.addEventListener("mouseleave", () => {
-					if (staticSrc) img.src = staticSrc;
+				
+				const canvas = mc.createEl("canvas", { cls: "mc-waterfall-gif-canvas" });
+				canvas.style.position = "absolute";
+				canvas.style.top = "0";
+				canvas.style.left = "0";
+				canvas.style.width = "100%";
+				canvas.style.height = "100%";
+				canvas.style.objectFit = "contain";
+				// Match whatever border radius the img has
+				canvas.style.borderRadius = "var(--radius-m, 4px)";
+				canvas.style.pointerEvents = "none"; // Let mouse events pass through to img
+				
+				img.addEventListener("load", () => {
+					onSized(img.naturalWidth, img.naturalHeight);
+					
+					canvas.width = img.naturalWidth;
+					canvas.height = img.naturalHeight;
+					const ctx = canvas.getContext("2d");
+					if (ctx) ctx.drawImage(img, 0, 0);
+					
+					// Initially, the canvas (frozen frame) covers the GIF
+					if (img.matches(":hover") || mc.matches(":hover")) {
+						canvas.style.display = "none";
+					} else {
+						canvas.style.display = "block";
+					}
+				}, { once: true });
+				
+				// On hover, hide the frozen canvas to reveal the playing GIF underneath
+				mc.addEventListener("mouseenter", () => {
+					canvas.style.display = "none";
 				});
+				
+				// On un-hover, show the frozen canvas to "pause" it again
+				mc.addEventListener("mouseleave", () => {
+					canvas.style.display = "block";
+				});
+			} else {
+				// Standard static image
+				const img = mc.createEl("img", {
+					attr: { src: resourcePath, alt: item.mediaFile.basename },
+				});
+				img.addEventListener("load", () => onSized(img.naturalWidth, img.naturalHeight));
 			}
 		} else if (mediaType === MediaTypes.Video) {
 			const video = mc.createEl("video", {
