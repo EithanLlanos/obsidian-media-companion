@@ -144,9 +144,14 @@ export class BulkEditModal extends Modal {
 			}
 
 			let currentType = typeManager?.getAssignedType?.(key)?.type || typeManager?.getProperties?.()?.[key]?.type;
+			if (currentType === "list") currentType = "multitext";
 			if (!currentType) {
 				if (data.rawValues.some(v => Array.isArray(v))) {
 					currentType = "multitext";
+				} else if (data.rawValues.some(v => typeof v === "number")) {
+					currentType = "number";
+				} else if (data.rawValues.some(v => typeof v === "boolean")) {
+					currentType = "checkbox";
 				} else {
 					currentType = "text";
 				}
