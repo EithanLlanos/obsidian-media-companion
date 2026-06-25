@@ -414,12 +414,20 @@ class PropertySuggest extends AbstractInputSuggest<string> {
 		suggestions.add("tags");
 		suggestions.add("aliases");
 		
-		for (const item of this.selectedItems) {
-			const file = item.sidecarFile || item.mediaFile;
-			const cache = this.app.metadataCache.getFileCache(file);
-			if (cache?.frontmatter) {
-				for (const key of Object.keys(cache.frontmatter)) {
-					suggestions.add(key);
+		const typeManager = (this.app as any).metadataTypeManager;
+		if (typeManager && typeof typeManager.getProperties === 'function') {
+			const props = typeManager.getProperties();
+			if (props) {
+				Object.keys(props).forEach(k => suggestions.add(k));
+			}
+		} else {
+			const files = this.app.vault.getMarkdownFiles();
+			for (const file of files) {
+				const cache = this.app.metadataCache.getFileCache(file);
+				if (cache?.frontmatter) {
+					for (const key of Object.keys(cache.frontmatter)) {
+						suggestions.add(key);
+					}
 				}
 			}
 		}
@@ -477,7 +485,7 @@ class ValueSuggest extends AbstractInputSuggest<string> {
 			}
 			match = true;
 			useTags = true;
-		} else if (this.uniqueProps) {
+		} else {
 			const tagMatch = textBeforeCursor.match(/([^,\s]*)$/);
 			if (tagMatch) {
 				searchStr = tagMatch[1];
@@ -499,40 +507,31 @@ class ValueSuggest extends AbstractInputSuggest<string> {
 				.slice(0, 20);
 		}
 
-		if (this.uniqueProps) {
-			const propName = this.getPropName();
-			let vaultValues: string[] = [];
-			try {
-				const cache = this.app.metadataCache as any;
-				if (typeof cache.getFrontmatterPropertyValuesForKey === 'function') {
-					vaultValues = cache.getFrontmatterPropertyValuesForKey(propName) || [];
-				}
-			} catch(e) {}
-
-			const propData = this.uniqueProps.get(propName);
-			const allValues = new Set<string>();
-			
-			vaultValues.forEach(v => allValues.add(v));
-
-			if (propData) {
-				propData.values.forEach(v => {
-					try { 
-						const parsed = JSON.parse(v);
-						if (typeof parsed === "string") allValues.add(parsed);
-						else allValues.add(v);
-					} catch(e) { 
-						allValues.add(v); 
+		// Manually scan the entire vault cache for values of this property
+		const allValues = new Set<string>();
+		const files = this.app.vault.getMarkdownFiles();
+		const propKey = this.getPropName();
+		
+		for (const file of files) {
+			const cache = this.app.metadataCache.getFileCache(file);
+			if (cache && cache.frontmatter) {
+				const val = cache.frontmatter[propKey];
+				if (val !== undefined && val !== null && val !== "") {
+					if (Array.isArray(val)) {
+						val.forEach(v => {
+							if (v !== null && v !== undefined && v !== "") allValues.add(String(v));
+						});
+					} else {
+						allValues.add(String(val));
 					}
-				});
+				}
 			}
-
-			const suggestions = Array.from(allValues)
-				.filter(v => typeof v === "string" && v.toLowerCase().includes(searchLower))
-				.slice(0, 20);
-			return suggestions as string[];
 		}
 
-		return [];
+		const suggestions = Array.from(allValues)
+			.filter(v => v.toLowerCase().includes(searchLower))
+			.slice(0, 20);
+		return suggestions;
 	}
 
 	renderSuggestion(suggestion: string, el: HTMLElement): void {
