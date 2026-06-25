@@ -620,16 +620,23 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 		}
 
 		el.setAttribute("draggable", "true");
-		el.addEventListener("dragstart", (evt) => {
+		el.addEventListener("dragstart", (evt: DragEvent) => {
 			if (!evt.dataTransfer) return;
 			
-			const resourcePath = this.app.vault.getResourcePath(item.mediaFile);
-			evt.dataTransfer.setData("text/uri-list", resourcePath);
-			evt.dataTransfer.setData("text/plain", item.mediaFile.path);
-			evt.dataTransfer.effectAllowed = "copy";
+			// Use Obsidian's native drag manager so it acts like dragging from the File Explorer
+			const dragManager = (this.app as any).dragManager;
+			if (dragManager && typeof dragManager.dragFile === "function") {
+				const dragData = dragManager.dragFile(evt, item.mediaFile);
+				dragManager.onDragStart(evt, dragData);
+			} else {
+				// Fallback for older versions or missing dragManager
+				const resourcePath = this.app.vault.getResourcePath(item.mediaFile);
+				evt.dataTransfer.setData("text/uri-list", resourcePath);
+				evt.dataTransfer.setData("text/plain", `![[${item.mediaFile.path}]]`);
+				evt.dataTransfer.effectAllowed = "copyMove";
+			}
 
 			const img = el.querySelector("img");
-			
 			if (img) evt.dataTransfer.setDragImage(img, 0, 0);
 		});
 
