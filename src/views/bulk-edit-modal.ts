@@ -1,4 +1,4 @@
-import { App, Modal, Setting, AbstractInputSuggest, TextComponent, DropdownComponent, TextAreaComponent } from "obsidian";
+import { App, Modal, Setting, AbstractInputSuggest, TextComponent, DropdownComponent, TextAreaComponent, Notice } from "obsidian";
 import type { TFile } from "obsidian";
 
 interface LayoutItem {
@@ -70,6 +70,7 @@ class TokenInput {
 
 	addToken() {
 		const val = this.inputEl.value.trim();
+		new Notice("addToken called with val: " + val);
 		if (val) {
 			this.values.push(val);
 			this.inputEl.value = "";
@@ -605,7 +606,10 @@ class ValueSuggest extends AbstractInputSuggest<string> {
 		const event = new Event('input', { bubbles: true });
 		this.textInputEl.dispatchEvent(event);
 		
+		new Notice("selectSuggestion fired. New value: " + newValue);
+
 		if (this.textInputEl.classList.contains("mc-token-input")) {
+			new Notice("Dispatching Enter event...");
 			const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
 			this.textInputEl.dispatchEvent(enterEvent);
 		}
