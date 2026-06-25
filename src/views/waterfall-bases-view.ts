@@ -652,7 +652,7 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 				mi.setTitle("Move")
 					.setIcon("folder-input")
 					.onClick(() => {
-						new MoveModal(this.app, item.mediaFile, item.sidecarFile).open();
+						new MoveModal(this.app, [item]).open();
 					})
 			);
 
@@ -1182,6 +1182,11 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 			const editBtn = btnContainer.createEl("button", { text: "Edit Properties" });
 			editBtn.addEventListener("click", () => {
 				new BulkEditModal(this.app, selectedItems).open();
+			});
+
+			const moveBtn = btnContainer.createEl("button", { text: "Move" });
+			moveBtn.addEventListener("click", () => {
+				new MoveModal(this.app, selectedItems).open();
 			});
 
 			const clearBtn = btnContainer.createEl("button", { text: "Clear Selection" });

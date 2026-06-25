@@ -57,13 +57,11 @@ export class RenameModal extends Modal {
 }
 
 export class MoveModal extends FuzzySuggestModal<TFolder> {
-	private mediaFile: TFile;
-	private sidecarFile: TFile | null;
+	private items: { mediaFile: TFile, sidecarFile: TFile | null }[];
 
-	constructor(app: App, mediaFile: TFile, sidecarFile: TFile | null) {
+	constructor(app: App, items: { mediaFile: TFile, sidecarFile: TFile | null }[]) {
 		super(app);
-		this.mediaFile = mediaFile;
-		this.sidecarFile = sidecarFile;
+		this.items = items;
 	}
 
 	getItems(): TFolder[] {
@@ -82,12 +80,14 @@ export class MoveModal extends FuzzySuggestModal<TFolder> {
 	}
 
 	async onChooseItem(folder: TFolder, evt: MouseEvent | KeyboardEvent) {
-		const newMediaPath = folder.path === "/" ? this.mediaFile.name : `${folder.path}/${this.mediaFile.name}`;
-		await this.app.fileManager.renameFile(this.mediaFile, newMediaPath);
+		for (const item of this.items) {
+			const newMediaPath = folder.path === "/" ? item.mediaFile.name : `${folder.path}/${item.mediaFile.name}`;
+			await this.app.fileManager.renameFile(item.mediaFile, newMediaPath);
 
-		if (this.sidecarFile) {
-			const newSidecarPath = folder.path === "/" ? this.sidecarFile.name : `${folder.path}/${this.sidecarFile.name}`;
-			await this.app.fileManager.renameFile(this.sidecarFile, newSidecarPath);
+			if (item.sidecarFile) {
+				const newSidecarPath = folder.path === "/" ? item.sidecarFile.name : `${folder.path}/${item.sidecarFile.name}`;
+				await this.app.fileManager.renameFile(item.sidecarFile, newSidecarPath);
+			}
 		}
 	}
 }
