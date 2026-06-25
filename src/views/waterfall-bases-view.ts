@@ -7,6 +7,7 @@ import { VIEW_TYPE_SIDECAR } from "./sidecar-view";
 import type { MediaCompanionSettings } from "../settings";
 import { BulkEditModal } from "./bulk-edit-modal";
 import { RenameModal, MoveModal } from "./action-modals";
+import { extractColors } from "extract-colors";
 
 export const BASES_VIEW_TYPE_WATERFALL = "mc-waterfall";
 
@@ -1228,6 +1229,71 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 				const links = selectedItems.map(i => `![[${i.mediaFile.path}]]`).join("\n");
 				navigator.clipboard.writeText(links);
 				new Notice(`${selectedItems.length} links copied to clipboard`);
+				this.updateActionBar();
+			});
+
+			const rebuildBtn = btnContainer.createEl("button", { text: "Rebuild Metadata" });
+			rebuildBtn.addEventListener("click", async () => {
+				const total = selectedItems.length;
+				const progressNotice = new Notice(`Rebuilding 0/${total} items...`, 0);
+				let count = 0;
+
+				for (const item of selectedItems) {
+					count++;
+					progressNotice.setMessage(`Rebuilding ${count}/${total} items...`);
+					try {
+						if (!item.sidecarFile) continue;
+
+						const src = this.app.vault.getResourcePath(item.mediaFile);
+						
+						// 1. Read size
+						const sizePromise = new Promise<{width: number, height: number}>((resolve, reject) => {
+							const img = new Image();
+							img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+							img.onerror = reject;
+							img.src = src;
+						});
+
+						const size = await sizePromise;
+
+						// 2. Read colors
+						const extracted = await extractColors(src, { pixels: 64000 });
+						const colors = extracted.map((e: any) => ({
+							h: e.hue,
+							s: e.saturation,
+							l: e.lightness,
+							area: e.area
+						}));
+
+						// 3. Process frontmatter
+						await this.app.fileManager.processFrontMatter(item.sidecarFile, (fm) => {
+							fm["MC-colors"] = colors;
+							fm["MC-size"] = [size.width, size.height];
+							fm["MC-last-updated"] = new Date().toISOString();
+						});
+
+						// Update type manager for datetime if possible
+						const typeManager = (this.app as any).metadataTypeManager;
+						if (typeManager && typeManager.properties["mc-last-updated"]) {
+							typeManager.properties["mc-last-updated"].type = "datetime";
+						}
+					} catch (e) {
+						console.error("Failed to rebuild", item.mediaFile.path, e);
+					}
+				}
+				
+				progressNotice.hide();
+				new Notice(`Rebuilt metadata for ${total} items successfully!`);
+				
+				// Deselect after rebuilding
+				for (const item of selectedItems) {
+					item.selected = false;
+					if (item.el) {
+						item.el.classList.remove("is-selected");
+						const cb = item.el.querySelector(".mc-waterfall-checkbox");
+						if (cb) cb.classList.remove("is-checked");
+					}
+				}
 				this.updateActionBar();
 			});
 
