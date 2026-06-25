@@ -375,7 +375,14 @@ export class BulkEditModal extends Modal {
 		const activeRows = this.rows.filter(r => r.name && r.action !== "Ignore");
 		if (activeRows.length === 0) return;
 
+		const total = this.selectedItems.length;
+		const progressNotice = new Notice(`Applying edits to 0/${total} items...`, 0);
+
+		let count = 0;
 		for (const item of this.selectedItems) {
+			count++;
+			progressNotice.setMessage(`Applying edits to ${count}/${total} items...`);
+			
 			const file = item.sidecarFile || item.mediaFile;
 			await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
 				for (const row of activeRows) {
@@ -415,6 +422,9 @@ export class BulkEditModal extends Modal {
 				}
 			});
 		}
+		
+		progressNotice.hide();
+		new Notice(`Successfully edited ${total} items!`);
 	}
 
 	private parseValue(val: string, type: string): any {

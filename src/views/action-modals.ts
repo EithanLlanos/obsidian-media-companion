@@ -1,4 +1,4 @@
-import { App, Modal, Setting, TFile, TFolder, FuzzySuggestModal } from "obsidian";
+import { App, Modal, Setting, TFile, TFolder, FuzzySuggestModal, Notice } from "obsidian";
 
 export class RenameModal extends Modal {
 	private mediaFile: TFile;
@@ -80,7 +80,14 @@ export class MoveModal extends FuzzySuggestModal<TFolder> {
 	}
 
 	async onChooseItem(folder: TFolder, evt: MouseEvent | KeyboardEvent) {
+		const total = this.items.length;
+		const progressNotice = new Notice(`Moving 0/${total} files...`, 0);
+		
+		let count = 0;
 		for (const item of this.items) {
+			count++;
+			progressNotice.setMessage(`Moving ${count}/${total} files...`);
+
 			const newMediaPath = folder.path === "/" ? item.mediaFile.name : `${folder.path}/${item.mediaFile.name}`;
 			await this.app.fileManager.renameFile(item.mediaFile, newMediaPath);
 
@@ -89,5 +96,8 @@ export class MoveModal extends FuzzySuggestModal<TFolder> {
 				await this.app.fileManager.renameFile(item.sidecarFile, newSidecarPath);
 			}
 		}
+		
+		progressNotice.hide();
+		new Notice(`Moved ${total} files successfully!`);
 	}
 }

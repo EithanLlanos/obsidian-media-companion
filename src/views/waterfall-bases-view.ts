@@ -1199,8 +1199,12 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 
 			const deleteBtn = btnContainer.createEl("button", { text: "Delete" });
 			deleteBtn.addEventListener("click", async () => {
-				new Notice(`Deleting ${selectedItems.length} items...`);
+				const total = selectedItems.length;
+				const progressNotice = new Notice(`Deleting 0/${total} items...`, 0);
+				let count = 0;
 				for (const item of selectedItems) {
+					count++;
+					progressNotice.setMessage(`Deleting ${count}/${total} items...`);
 					try {
 						if (item.sidecarFile) await this.app.fileManager.trashFile(item.sidecarFile);
 						await this.app.fileManager.trashFile(item.mediaFile);
@@ -1210,6 +1214,9 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 						console.error("Failed to delete", e);
 					}
 				}
+				progressNotice.hide();
+				new Notice(`Deleted ${total} items successfully!`);
+				
 				this.computePositions();
 				this.syncDOM();
 				this.updateActionBar();
