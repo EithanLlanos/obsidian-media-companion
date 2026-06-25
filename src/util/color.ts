@@ -93,11 +93,12 @@ export function isGrayscale(colors: { h: number; s: number; l: number; area: num
 		const colorfulness = c.s * lightnessMultiplier;
 		
 		// Sepia and yellowed paper detection
-		// Hues between ~14 and ~64 degrees (0.04 to 0.18) are typical for old paper / sepia ink
-		const isSepiaHue = c.h > 0.04 && c.h < 0.18;
+		// Hues between 18 and 50 degrees (0.05 to 0.14) are typical for old paper / sepia ink
+		// We tighten this range so we don't accidentally swallow green/yellow hues in colored screenshots.
+		const isSepiaTint = c.h >= 0.05 && c.h <= 0.14;
 		
 		// Require much higher colorfulness for sepia hues to count as "true color"
-		const threshold = isSepiaHue ? 0.3 : 0.05;
+		const threshold = isSepiaTint ? 0.20 : 0.05;
 		
 		if (colorfulness > threshold) {
 			colorfulArea += c.area;

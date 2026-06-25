@@ -45,8 +45,8 @@ export default class MCImage extends MediaFile {
 	private async readColors(): Promise<{h: number, s: number, l: number, area: number}[]> {
 		const extracted = await extractColors(
 			this.app.vault.getResourcePath(this.file),
-			// 1/4th of default pixels to speed up the process
-			{pixels: 16000});
+			// 64000 pixels provides a good balance between speed and ensuring small colored elements (like eyes or small text) aren't blurred away into gray during downsampling
+			{pixels: 64000});
 		const colors = [];
 
 		for (const e of extracted) {
