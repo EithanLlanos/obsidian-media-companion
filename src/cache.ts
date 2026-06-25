@@ -3,6 +3,7 @@ import MediaFile from "./model/mediaFile";
 import type MediaCompanion from "main";
 import { getMediaType, MediaTypes } from "./model/types/mediaTypes";
 import MCImage from "./model/types/image/image";
+import MCVideo from "./model/types/video/video";
 import Sidecar from "./model/sidecar";
 
 /**
@@ -92,6 +93,7 @@ export default class Cache {
 						case MediaTypes.Image:
 							return await MCImage.create(file, this.app, this.plugin);
 						case MediaTypes.Video:
+							return await MCVideo.create(file, this.app, this.plugin);
 						case MediaTypes.Unknown:
 						default:
 							return await MediaFile.create(file, this.app, this.plugin);
@@ -160,6 +162,8 @@ export default class Cache {
 					mediaFile = await MCImage.create(file, this.app, this.plugin);
 					break;
 				case MediaTypes.Video:
+					mediaFile = await MCVideo.create(file, this.app, this.plugin);
+					break;
 				case MediaTypes.Unknown:
 				default:
 					mediaFile = await MediaFile.create(file, this.app, this.plugin);

@@ -4,6 +4,7 @@ import MediaFile from "./model/mediaFile";
 import type Cache from "./cache";
 import { getMediaType, MediaTypes } from "./model/types/mediaTypes";
 import MCImage from "./model/types/image/image";
+import MCVideo from "./model/types/video/video";
 import Sidecar from "./model/sidecar";
 
 /**
@@ -166,6 +167,8 @@ export default class MutationHandler extends EventTarget {
 				mediaFile = await MCImage.create(file, this.app, this.plugin, sidecar);
 				break;
 			case MediaTypes.Video:
+				mediaFile = await MCVideo.create(file, this.app, this.plugin, sidecar);
+				break;
 			case MediaTypes.Unknown:
 				mediaFile = await MediaFile.create(file, this.app, this.plugin, sidecar);
 				break;

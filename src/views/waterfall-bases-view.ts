@@ -1300,25 +1300,76 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 						if (!item.sidecarFile) continue;
 
 						const src = this.app.vault.getResourcePath(item.mediaFile);
+						const isVideo = getMediaType(item.mediaFile.extension) === MediaTypes.Video;
 						
-						// 1. Read size
-						const sizePromise = new Promise<{width: number, height: number}>((resolve, reject) => {
-							const img = new Image();
-							img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-							img.onerror = reject;
-							img.src = src;
-						});
+						let size: {width: number, height: number};
+						let colors: any[];
 
-						const size = await sizePromise;
+						if (isVideo) {
+							const videoData = await new Promise<{size: {width: number, height: number}, colors: any[]}>((resolve, reject) => {
+								const video = document.createElement("video");
+								video.muted = true;
+								video.preload = "metadata";
+								
+								const onReady = async () => {
+									try {
+										const canvas = document.createElement("canvas");
+										canvas.width = video.videoWidth;
+										canvas.height = video.videoHeight;
+										const ctx = canvas.getContext("2d");
+										if (!ctx) return reject("No canvas context");
+										
+										ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+										const dataUrl = canvas.toDataURL("image/png");
+										
+										const extracted = await extractColors(dataUrl, { pixels: 64000 });
+										const extractedColors = extracted.map((e: any) => ({
+											h: e.hue,
+											s: e.saturation,
+											l: e.lightness,
+											area: e.area
+										}));
+										
+										resolve({
+											size: { width: canvas.width, height: canvas.height },
+											colors: extractedColors
+										});
+									} catch (e) {
+										reject(e);
+									} finally {
+										video.src = "";
+										video.remove();
+									}
+								};
 
-						// 2. Read colors
-						const extracted = await extractColors(src, { pixels: 64000 });
-						const colors = extracted.map((e: any) => ({
-							h: e.hue,
-							s: e.saturation,
-							l: e.lightness,
-							area: e.area
-						}));
+								video.addEventListener("loadeddata", () => { video.currentTime = 0.1; });
+								video.addEventListener("seeked", () => { onReady(); });
+								video.addEventListener("error", reject);
+								video.src = src;
+							});
+
+							size = videoData.size;
+							colors = videoData.colors;
+						} else {
+							// 1. Read size
+							const sizePromise = new Promise<{width: number, height: number}>((resolve, reject) => {
+								const img = new Image();
+								img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+								img.onerror = reject;
+								img.src = src;
+							});
+
+							size = await sizePromise;
+
+							// 2. Read colors
+							const extracted = await extractColors(src, { pixels: 64000 });
+							colors = extracted.map((e: any) => ({
+								h: e.hue,
+								s: e.saturation,
+								l: e.lightness,
+								area: e.area
+							}));
+						}
 
 						// 3. Process frontmatter
 						await this.app.fileManager.processFrontMatter(item.sidecarFile, (fm) => {
