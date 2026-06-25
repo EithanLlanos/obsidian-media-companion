@@ -16,6 +16,74 @@ interface PropertyRowState {
 	type: string;
 }
 
+class TokenInput {
+	containerEl: HTMLElement;
+	inputEl: HTMLInputElement;
+	values: string[];
+	onChangeCallback: (values: string[]) => void;
+
+	constructor(parentEl: HTMLElement, initialValue: string) {
+		this.containerEl = parentEl.createDiv("mc-token-container");
+		this.values = initialValue ? initialValue.split(/[,\n]/).map(s => s.trim()).filter(s => s.length > 0) : [];
+		
+		this.inputEl = this.containerEl.createEl("input", { cls: "mc-token-input" });
+		this.inputEl.type = "text";
+		this.inputEl.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") {
+				e.preventDefault();
+				this.addToken();
+			} else if (e.key === "Backspace" && this.inputEl.value === "" && this.values.length > 0) {
+				this.values.pop();
+				this.renderTokens();
+				this.onChangeCallback?.(this.values);
+			}
+		});
+
+		this.renderTokens();
+	}
+
+	renderTokens() {
+		this.containerEl.querySelectorAll(".mc-token-pill").forEach(el => el.remove());
+
+		for (const val of this.values) {
+			const pill = document.createElement("div");
+			pill.className = "mc-token-pill";
+			pill.createSpan({ text: val });
+			const close = pill.createSpan({ text: "x", cls: "mc-token-pill-close" });
+			close.addEventListener("click", () => {
+				const idx = this.values.indexOf(val);
+				if (idx > -1) {
+					this.values.splice(idx, 1);
+					this.renderTokens();
+					this.onChangeCallback?.(this.values);
+				}
+			});
+			this.containerEl.insertBefore(pill, this.inputEl);
+		}
+	}
+
+	addToken() {
+		const val = this.inputEl.value.trim();
+		if (val) {
+			this.values.push(val);
+			this.inputEl.value = "";
+			this.renderTokens();
+			this.onChangeCallback?.(this.values);
+		}
+	}
+
+	onChange(cb: (values: string[]) => void): this {
+		this.onChangeCallback = cb;
+		return this;
+	}
+
+	setPlaceholder(placeholder: string) {
+		this.inputEl.placeholder = placeholder;
+		return this;
+	}
+}
+
+
 export class BulkEditModal extends Modal {
 	private selectedItems: LayoutItem[];
 	private rows: PropertyRowState[] = [];
@@ -189,28 +257,49 @@ export class BulkEditModal extends Modal {
 			row.action = v as any;
 		});
 
-		// Value textarea
-		const valueInput = new TextAreaComponent(rowEl)
-			.setValue(row.value)
-			.onChange(v => {
-				row.value = v;
-				if (row.action === "Ignore") {
-					row.action = "Replace";
-					actionDropdown.setValue("Replace");
-				}
-			});
-		valueInput.inputEl.rows = 1;
-		valueInput.inputEl.style.flex = "1";
-		valueInput.inputEl.style.resize = "vertical";
-		valueInput.inputEl.style.minHeight = "30px";
+		let valueInputEl: HTMLInputElement | HTMLTextAreaElement;
+		
+		if (["multitext", "tags", "aliases"].includes(row.type)) {
+			const valueInput = new TokenInput(rowEl, row.value)
+				.onChange(values => {
+					row.value = values.join(", ");
+					if (row.action === "Ignore") {
+						row.action = "Replace";
+						actionDropdown.setValue("Replace");
+					}
+				});
+			valueInput.containerEl.style.flex = "1";
 
-		if (row.isMixed && !row.value) {
-			valueInput.setPlaceholder("(Mixed values)");
+			if (row.isMixed && !row.value) {
+				valueInput.setPlaceholder("(Mixed values)");
+			} else {
+				valueInput.setPlaceholder("Value");
+			}
+			valueInputEl = valueInput.inputEl;
 		} else {
-			valueInput.setPlaceholder("Value");
+			const valueInput = new TextAreaComponent(rowEl)
+				.setValue(row.value)
+				.onChange(v => {
+					row.value = v;
+					if (row.action === "Ignore") {
+						row.action = "Replace";
+						actionDropdown.setValue("Replace");
+					}
+				});
+			valueInput.inputEl.rows = 1;
+			valueInput.inputEl.style.flex = "1";
+			valueInput.inputEl.style.resize = "vertical";
+			valueInput.inputEl.style.minHeight = "30px";
+
+			if (row.isMixed && !row.value) {
+				valueInput.setPlaceholder("(Mixed values)");
+			} else {
+				valueInput.setPlaceholder("Value");
+			}
+			valueInputEl = valueInput.inputEl;
 		}
 
-		new ValueSuggest(this.app, valueInput.inputEl, () => row.name);
+		new ValueSuggest(this.app, valueInputEl, () => row.name);
 	}
 
 	private updateActionOptions(dropdown: DropdownComponent, row: PropertyRowState) {
@@ -409,6 +498,12 @@ class ValueSuggest extends AbstractInputSuggest<string> {
 		this.textInputEl.value = newValue;
 		const event = new Event('input', { bubbles: true });
 		this.textInputEl.dispatchEvent(event);
+		
+		if (this.textInputEl.classList.contains("mc-token-input")) {
+			const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+			this.textInputEl.dispatchEvent(enterEvent);
+		}
+		
 		this.close();
 	}
 }
