@@ -73,3 +73,19 @@ export function isColorWithinThreshold(
 
 	return true;
 }
+
+/**
+ * Checks if an image is predominantly grayscale (black, white, or gray).
+ * @param colors Array of extracted color objects
+ * @returns true if grayscale
+ */
+export function isGrayscale(colors: { h: number; s: number; l: number; area: number }[]): boolean {
+	if (!colors || !Array.isArray(colors) || colors.length === 0) return false;
+	let colorfulArea = 0;
+	for (const c of colors) {
+		if (c.s > 0.15 && c.l > 0.1 && c.l < 0.9) {
+			colorfulArea += c.area;
+		}
+	}
+	return colorfulArea < 0.1;
+}

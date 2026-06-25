@@ -2,7 +2,7 @@ import { BasesView, Keymap, Menu, Notice, parsePropertyId, TFolder, setIcon, typ
 import Sidecar from "../model/sidecar";
 import { getMediaType, MediaTypes } from "../model/types/mediaTypes";
 import { getShape } from "../model/types/shape";
-import { hexToRgb, rgbToHsl, isColorWithinThreshold } from "../util/color";
+import { hexToRgb, rgbToHsl, isColorWithinThreshold, isGrayscale } from "../util/color";
 import { VIEW_TYPE_SIDECAR } from "./sidecar-view";
 import type { MediaCompanionSettings } from "../settings";
 import { BulkEditModal } from "./bulk-edit-modal";
@@ -114,9 +114,11 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 		const newPropsFingerprint = newVisibleProperties.join(",");
 		this.visibleProperties = newVisibleProperties;
 
+		const filterColorMode = String(this.config.get("filterColorMode") || "include");
+		const filterColorPreset = String(this.config.get("filterColorPreset") || "");
 		const filterColor = String(this.config.get("filterColor") || "").trim();
-		const colorThreshold = Number(this.config.get("colorThreshold")) || 50;
-		const filterShape = String(this.config.get("filterShape") || "").trim().toLowerCase();
+		const colorThreshold = parseFloat(String(this.config.get("colorThreshold") || "50"));
+		const filterShape = String(this.config.get("filterShape") || "");
 		const filterMinWidth = parseInt(String(this.config.get("filterMinWidth") || ""), 10) || 0;
 		const filterMaxWidth = parseInt(String(this.config.get("filterMaxWidth") || ""), 10) || 0;
 		const filterMinHeight = parseInt(String(this.config.get("filterMinHeight") || ""), 10) || 0;
@@ -124,7 +126,7 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 		const searchQuery = String(this.config.get("searchQuery") || "").trim().toLowerCase();
 
 		const dataIds = this.data.groupedData.flatMap(g => g.entries.map(e => e.file.path)).join("\n");
-		const fingerprint = `${dataIds}|${filterColor}|${colorThreshold}|${filterShape}|${filterMinWidth}|${filterMaxWidth}|${filterMinHeight}|${filterMaxHeight}|${searchQuery}`;
+		const fingerprint = `${dataIds}|${filterColorMode}|${filterColorPreset}|${filterColor}|${colorThreshold}|${filterShape}|${filterMinWidth}|${filterMaxWidth}|${filterMinHeight}|${filterMaxHeight}|${searchQuery}`;
 
 		const layoutOnly = fingerprint === this.lastDataFingerprint && this.layoutItems.length > 0;
 
@@ -209,9 +211,24 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 
 		let targetHsl: [number, number, number] | null = null;
 		
-		if (filterColor) {
+		const PRESET_COLORS: Record<string, [number, number, number]> = {
+			red: [0, 1, 0.5],
+			orange: [30, 1, 0.5],
+			yellow: [60, 1, 0.5],
+			green: [120, 1, 0.5],
+			blue: [240, 1, 0.5],
+			purple: [300, 1, 0.25],
+			pink: [300, 1, 0.75],
+			brown: [30, 1, 0.25],
+			black: [0, 0, 0],
+			white: [0, 0, 1],
+			gray: [0, 0, 0.5],
+		};
+
+		if (filterColorPreset && PRESET_COLORS[filterColorPreset]) {
+			targetHsl = PRESET_COLORS[filterColorPreset];
+		} else if (filterColor) {
 			const rgb = hexToRgb(filterColor);
-			
 			if (rgb) targetHsl = rgbToHsl(rgb[0], rgb[1], rgb[2]);
 		}
 
@@ -257,8 +274,14 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 				if (filterMinHeight > 0 && meta.height > 0 && meta.height < filterMinHeight) continue;
 				if (filterMaxHeight > 0 && meta.height > 0 && meta.height > filterMaxHeight) continue;
 
-				if (targetHsl && meta.colors) {
-					if (!isColorWithinThreshold(targetHsl[0], targetHsl[1], targetHsl[2], meta.colors, colorThreshold / 100)) continue;
+				if (filterColorMode === "grayscale" && meta.colors) {
+					if (!isGrayscale(meta.colors)) continue;
+				} else if (filterColorMode === "colorful" && meta.colors) {
+					if (isGrayscale(meta.colors)) continue;
+				} else if (targetHsl && meta.colors) {
+					const isClose = isColorWithinThreshold(targetHsl[0], targetHsl[1], targetHsl[2], meta.colors, colorThreshold / 100);
+					if (filterColorMode === "include" && !isClose) continue;
+					if (filterColorMode === "exclude" && isClose) continue;
 				}
 
 				const item: LayoutItem = {
@@ -313,8 +336,14 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 					if (filterMaxWidth > 0 && meta.width > 0 && meta.width > filterMaxWidth) continue;
 					if (filterMinHeight > 0 && meta.height > 0 && meta.height < filterMinHeight) continue;
 					if (filterMaxHeight > 0 && meta.height > 0 && meta.height > filterMaxHeight) continue;
-					if (targetHsl && meta.colors) {
-						if (!isColorWithinThreshold(targetHsl[0], targetHsl[1], targetHsl[2], meta.colors, colorThreshold / 100)) continue;
+					if (filterColorMode === "grayscale" && meta.colors) {
+						if (!isGrayscale(meta.colors)) continue;
+					} else if (filterColorMode === "colorful" && meta.colors) {
+						if (isGrayscale(meta.colors)) continue;
+					} else if (targetHsl && meta.colors) {
+						const isClose = isColorWithinThreshold(targetHsl[0], targetHsl[1], targetHsl[2], meta.colors, colorThreshold / 100);
+						if (filterColorMode === "include" && !isClose) continue;
+						if (filterColorMode === "exclude" && isClose) continue;
 					}
 
 					this.layoutItems.push({
@@ -1327,9 +1356,41 @@ export function getWaterfallViewOptions(): any[] {
 					},
 				},
 				{
+					type: "dropdown",
+					key: "filterColorMode",
+					displayName: "Colour Filter Mode",
+					default: "include",
+					options: {
+						"include": "Contains Color",
+						"exclude": "Excludes Color",
+						"colorful": "Colorful Only (Exclude B&W)",
+						"grayscale": "Grayscale Only (B&W)"
+					}
+				},
+				{
+					type: "dropdown",
+					key: "filterColorPreset",
+					displayName: "Colour Preset",
+					default: "",
+					options: {
+						"": "Custom Hex / Any",
+						"red": "Red",
+						"orange": "Orange",
+						"yellow": "Yellow",
+						"green": "Green",
+						"blue": "Blue",
+						"purple": "Purple",
+						"pink": "Pink",
+						"brown": "Brown",
+						"black": "Black",
+						"white": "White",
+						"gray": "Gray"
+					}
+				},
+				{
 					type: "text",
 					key: "filterColor",
-					displayName: "Colour (hex)",
+					displayName: "Colour (custom hex)",
 					default: "",
 					placeholder: "#ff0000",
 				},
