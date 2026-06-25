@@ -135,11 +135,11 @@ export class BulkEditModal extends Modal {
 			if (!isMixed && data.rawValues.length > 0) {
 				const val = data.rawValues[0];
 				if (Array.isArray(val)) {
-					initialValue = val.map((v: any) => typeof v === "object" ? JSON.stringify(v) : String(v)).join(", ");
-				} else if (typeof val === "object") {
+					initialValue = val.map((v: any) => typeof v === "object" && v !== null ? JSON.stringify(v) : (v === null || v === undefined ? "" : String(v))).join(", ");
+				} else if (typeof val === "object" && val !== null) {
 					initialValue = JSON.stringify(val);
 				} else {
-					initialValue = String(val);
+					initialValue = (val === null || val === undefined) ? "" : String(val);
 				}
 			}
 
