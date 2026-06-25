@@ -75,12 +75,15 @@ export default class Cache {
 			"color: #00b7eb", "color: inherit"
 		);
 
-		const notice = new Notice(`Building cache with ${files.length} media files found of ${total_files} files total\nProcessing may take a while if many new files have been added`, 0);	
+		let notice: Notice | undefined;
+		if (!this.plugin.settings.silenceStartupNotification) {
+			notice = new Notice(`Building cache with ${files.length} media files found of ${total_files} files total\nProcessing may take a while if many new files have been added`, 0);	
+		}
 
 		let total_done = 0;
 
 		for (const file of files) {
-			notice.setMessage(`Currently checking: ${file.name}`);
+			notice?.setMessage(`Currently checking: ${file.name}`);
 			let mediaFile;
 
 			try {
@@ -110,7 +113,7 @@ export default class Cache {
 			total_done++;
 		}
 
-		notice.hide();
+		notice?.hide();
 
 		console.debug(
 			`%c[Media Companion]: %cFinished building cache in ${(Date.now() - timer) / 1000}s, ${this.files.length} files in cache`, 
@@ -142,7 +145,10 @@ export default class Cache {
 		// This is an awful way to do this; It's O(N^2) - Should improve at some point
 		files = files.filter(f => !this.files.some(mf => mf.file.path === f.path));
 
-		const notice = new Notice(`Adding ${files.length} new files`, 0);	
+		let notice: Notice | undefined;
+		if (!this.plugin.settings.silenceStartupNotification) {
+			notice = new Notice(`Adding ${files.length} new files`, 0);	
+		}
 
 		let total_done = 0;
 
@@ -163,10 +169,10 @@ export default class Cache {
 			this.addFile(mediaFile);
 
 			total_done++;
-			notice.setMessage(`Media Companion: ${total_done}/${files.length} new files added\nProcessing may take a while if many new files have been added`);
+			notice?.setMessage(`Media Companion: ${total_done}/${files.length} new files added\nProcessing may take a while if many new files have been added`);
 		}
 
-		notice.hide();
+		notice?.hide();
 		this.building = false;
 	}
 

@@ -1,9 +1,10 @@
-import { App, debounce, Platform, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, debounce, Platform, Plugin, PluginSettingTab, Setting, TFolder, TFile, Notice } from 'obsidian';
 import { DEFAULT_SETTINGS } from 'src/settings'
 import type { MediaCompanionSettings } from 'src/settings';
 import Cache from 'src/cache';
 import MutationHandler from 'src/mutationHandler';
 import MediaFile from 'src/model/mediaFile';
+import Sidecar from 'src/model/sidecar';
 import { SidecarView, VIEW_TYPE_SIDECAR } from 'src/views/sidecar-view';
 import { WaterfallBasesView, BASES_VIEW_TYPE_WATERFALL, getWaterfallViewOptions } from 'src/views/waterfall-bases-view';
 import ApiServer from 'src/api/server';
@@ -54,6 +55,30 @@ export default class MediaCompanion extends Plugin {
 			const explorers = this.app.workspace.getLeavesOfType("file-explorer");
 			for (const explorer of explorers) {
 				await this.cache.hideAll(explorer);
+			}
+		}));
+
+		this.registerEvent(this.app.workspace.on("file-menu", (menu, file) => {
+			if (file instanceof TFolder) {
+				menu.addItem((item) => {
+					item
+						.setTitle("Generate missing media sidecars")
+						.setIcon("file-plus")
+						.onClick(async () => {
+							let createdCount = 0;
+							for (const child of file.children) {
+								if (child instanceof TFile && this.settings.extensions.includes(child.extension.toLowerCase())) {
+									const sidecarPath = `${child.path}.sidecar.md`;
+									const sidecarExists = this.app.vault.getAbstractFileByPath(sidecarPath);
+									if (!sidecarExists) {
+										await Sidecar.create(child, this.app, this);
+										createdCount++;
+									}
+								}
+							}
+							new Notice(`Created ${createdCount} sidecars.`);
+						});
+				});
 			}
 		}));
 
@@ -136,6 +161,25 @@ class MediaCompanionSettingTab extends PluginSettingTab {
 		}, 500, true);
 
 		containerEl.empty();
+
+		new Setting(containerEl)
+			.setName('Silence startup sync notifications')
+			.setDesc('Do not show notifications when syncing media on startup or extension change.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.silenceStartupNotification)
+				.onChange(async (value) => {
+					this.plugin.settings.silenceStartupNotification = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Manual sync')
+			.setDesc('Manually trigger cache rebuild for new media files.')
+			.addButton(button => button
+				.setButtonText('Run manual sync')
+				.onClick(async () => {
+					await this.plugin.cache.updateExtensions();
+				}));
 
 		new Setting(containerEl)
 			.setName('Hide sidecar files')
