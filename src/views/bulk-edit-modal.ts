@@ -45,6 +45,10 @@ class TokenInput {
 			}
 		});
 
+		this.inputEl.addEventListener("mc-add-token", () => {
+			this.addToken();
+		});
+
 		this.renderTokens();
 	}
 
@@ -70,7 +74,6 @@ class TokenInput {
 
 	addToken() {
 		const val = this.inputEl.value.trim();
-		new Notice("addToken called with val: " + val);
 		if (val) {
 			this.values.push(val);
 			this.inputEl.value = "";
@@ -605,13 +608,9 @@ class ValueSuggest extends AbstractInputSuggest<string> {
 		this.textInputEl.value = newValue;
 		const event = new Event('input', { bubbles: true });
 		this.textInputEl.dispatchEvent(event);
-		
-		new Notice("selectSuggestion fired. New value: " + newValue);
 
 		if (this.textInputEl.classList.contains("mc-token-input")) {
-			new Notice("Dispatching Enter event...");
-			const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
-			this.textInputEl.dispatchEvent(enterEvent);
+			this.textInputEl.dispatchEvent(new CustomEvent('mc-add-token'));
 		}
 		
 		this.close();
