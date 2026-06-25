@@ -81,11 +81,25 @@ export function isColorWithinThreshold(
  */
 export function isGrayscale(colors: { h: number; s: number; l: number; area: number }[]): boolean {
 	if (!colors || !Array.isArray(colors) || colors.length === 0) return false;
-	let colorfulArea = 0;
+	
+	let totalArea = 0;
+	let weightedSaturation = 0;
+	
 	for (const c of colors) {
-		if (c.s > 0.15 && c.l > 0.1 && c.l < 0.9) {
-			colorfulArea += c.area;
-		}
+		totalArea += c.area;
+		
+		// Lightness scaling: extreme darks (near 0) and extreme lights (near 1) 
+		// appear more gray to the human eye, regardless of mathematical saturation.
+		// We scale the saturation down as lightness approaches 0 or 1.
+		const lightnessMultiplier = 1 - Math.pow(Math.abs(c.l - 0.5) * 2, 2);
+		
+		weightedSaturation += (c.s * lightnessMultiplier) * c.area;
 	}
-	return colorfulArea < 0.1;
+	
+	if (totalArea === 0) return true;
+	
+	const averageSaturation = weightedSaturation / totalArea;
+	
+	// An average adjusted saturation below 0.12 typically denotes a monochrome or extremely desaturated image.
+	return averageSaturation < 0.12;
 }
