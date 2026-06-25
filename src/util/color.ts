@@ -82,24 +82,28 @@ export function isColorWithinThreshold(
 export function isGrayscale(colors: { h: number; s: number; l: number; area: number }[]): boolean {
 	if (!colors || !Array.isArray(colors) || colors.length === 0) return false;
 	
-	let totalArea = 0;
-	let weightedSaturation = 0;
+	let colorfulArea = 0;
 	
 	for (const c of colors) {
-		totalArea += c.area;
+		// Ignore extreme blacks and extreme whites/paper backgrounds
+		if (c.l < 0.1 || c.l > 0.88) continue;
 		
-		// Lightness scaling: extreme darks (near 0) and extreme lights (near 1) 
-		// appear more gray to the human eye, regardless of mathematical saturation.
-		// We scale the saturation down as lightness approaches 0 or 1.
+		// Lightness scaling: extreme darks and extreme lights appear more gray.
 		const lightnessMultiplier = 1 - Math.pow(Math.abs(c.l - 0.5) * 2, 2);
+		const colorfulness = c.s * lightnessMultiplier;
 		
-		weightedSaturation += (c.s * lightnessMultiplier) * c.area;
+		// Sepia and yellowed paper detection
+		// Hues between ~14 and ~64 degrees (0.04 to 0.18) are typical for old paper / sepia ink
+		const isSepiaHue = c.h > 0.04 && c.h < 0.18;
+		
+		// Require much higher colorfulness for sepia hues to count as "true color"
+		const threshold = isSepiaHue ? 0.3 : 0.08;
+		
+		if (colorfulness > threshold) {
+			colorfulArea += c.area;
+		}
 	}
 	
-	if (totalArea === 0) return true;
-	
-	const averageSaturation = weightedSaturation / totalArea;
-	
-	// An average adjusted saturation below 0.12 typically denotes a monochrome or extremely desaturated image.
-	return averageSaturation < 0.12;
+	// If less than 5% of the image contains significant, non-sepia color, it is grayscale
+	return colorfulArea < 0.05;
 }
