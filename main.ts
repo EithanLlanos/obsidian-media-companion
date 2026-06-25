@@ -66,16 +66,22 @@ export default class MediaCompanion extends Plugin {
 						.setIcon("file-plus")
 						.onClick(async () => {
 							let createdCount = 0;
-							for (const child of file.children) {
-								if (child instanceof TFile && this.settings.extensions.includes(child.extension.toLowerCase())) {
-									const sidecarPath = `${child.path}.sidecar.md`;
-									const sidecarExists = this.app.vault.getAbstractFileByPath(sidecarPath);
-									if (!sidecarExists) {
-										await Sidecar.create(child, this.app, this);
-										createdCount++;
+							new Notice("Scanning for missing sidecars...");
+							const traverse = async (folder: TFolder) => {
+								for (const child of folder.children) {
+									if (child instanceof TFile && this.settings.extensions.includes(child.extension.toLowerCase())) {
+										const sidecarPath = `${child.path}.sidecar.md`;
+										const sidecarExists = this.app.vault.getAbstractFileByPath(sidecarPath);
+										if (!sidecarExists) {
+											await Sidecar.create(child, this.app, this);
+											createdCount++;
+										}
+									} else if (child instanceof TFolder) {
+										await traverse(child);
 									}
 								}
-							}
+							};
+							await traverse(file);
 							new Notice(`Created ${createdCount} sidecars.`);
 						});
 				});
