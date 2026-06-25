@@ -97,7 +97,7 @@ export function isGrayscale(colors: { h: number; s: number; l: number; area: num
 		const isSepiaHue = c.h > 0.04 && c.h < 0.18;
 		
 		// Require much higher colorfulness for sepia hues to count as "true color"
-		const threshold = isSepiaHue ? 0.3 : 0.08;
+		const threshold = isSepiaHue ? 0.3 : 0.05;
 		
 		if (colorfulness > threshold) {
 			colorfulArea += c.area;
