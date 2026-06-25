@@ -214,7 +214,6 @@ export class BulkEditModal extends Modal {
 		rowEl.style.gap = "10px";
 		rowEl.style.marginBottom = "10px";
 
-		// Property Name
 		if (row.isNew) {
 			const nameInput = new TextComponent(rowEl)
 				.setPlaceholder("Property name")
@@ -222,6 +221,18 @@ export class BulkEditModal extends Modal {
 				.onChange(v => {
 					row.name = v;
 				});
+			nameInput.inputEl.addEventListener("blur", () => {
+				const v = nameInput.inputEl.value;
+				if (v) {
+					const typeManager = (this.app as any).metadataTypeManager;
+					let knownType = typeManager?.getAssignedType?.(v)?.type || typeManager?.getProperties?.()?.[v]?.type;
+					if (knownType === "list") knownType = "multitext";
+					if (knownType && knownType !== row.type) {
+						row.type = knownType;
+						this.renderUI();
+					}
+				}
+			});
 			nameInput.inputEl.style.width = "120px";
 			new PropertySuggest(this.app, nameInput.inputEl, this.selectedItems);
 		} else {
@@ -245,6 +256,10 @@ export class BulkEditModal extends Modal {
 			"tags": "Tags"
 		};
 
+		if (row.type === "list") {
+			row.type = "multitext";
+		}
+		
 		let currentType = row.type;
 		if (!typeOptions[currentType]) currentType = "text";
 
