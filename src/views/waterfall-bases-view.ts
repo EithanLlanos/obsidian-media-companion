@@ -807,11 +807,40 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 		};
 
 		if (mediaType === MediaTypes.Image) {
+			const isGif = item.mediaFile.extension.toLowerCase() === "gif";
 			const img = mc.createEl("img", {
 				attr: { src: resourcePath, alt: item.mediaFile.basename },
 			});
 
-			img.addEventListener("load", () => onSized(img.naturalWidth, img.naturalHeight));
+			let staticSrc: string | null = null;
+
+			img.addEventListener("load", () => {
+				onSized(img.naturalWidth, img.naturalHeight);
+				
+				// If it's a GIF and we haven't generated the static thumbnail yet
+				if (isGif && !staticSrc) {
+					const canvas = document.createElement("canvas");
+					canvas.width = img.naturalWidth;
+					canvas.height = img.naturalHeight;
+					const ctx = canvas.getContext("2d");
+					if (ctx) {
+						ctx.drawImage(img, 0, 0);
+						staticSrc = canvas.toDataURL("image/png");
+						// Swap to static image immediately to "pause" it
+						img.src = staticSrc; 
+					}
+				}
+			});
+
+			if (isGif) {
+				// Emulate video playback on hover
+				img.addEventListener("mouseenter", () => {
+					if (staticSrc) img.src = resourcePath;
+				});
+				img.addEventListener("mouseleave", () => {
+					if (staticSrc) img.src = staticSrc;
+				});
+			}
 		} else if (mediaType === MediaTypes.Video) {
 			const video = mc.createEl("video", {
 				attr: { src: resourcePath, preload: "metadata", muted: "" },
