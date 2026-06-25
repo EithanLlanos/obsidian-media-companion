@@ -87,6 +87,7 @@ class TokenInput {
 export class BulkEditModal extends Modal {
 	private selectedItems: LayoutItem[];
 	private rows: PropertyRowState[] = [];
+	public uniqueProps = new Map<string, { values: Set<string>, rawValues: any[] }>();
 
 	constructor(app: App, selectedItems: LayoutItem[]) {
 		super(app);
@@ -99,20 +100,20 @@ export class BulkEditModal extends Modal {
 	}
 
 	private aggregateProperties() {
-		const uniqueProps = new Map<string, { values: Set<string>, rawValues: any[] }>();
+		this.uniqueProps = new Map<string, { values: Set<string>, rawValues: any[] }>();
 
 		for (const item of this.selectedItems) {
 			const file = item.sidecarFile || item.mediaFile;
 			const cache = this.app.metadataCache.getFileCache(file);
 			if (cache?.frontmatter) {
 				for (const [key, val] of Object.entries(cache.frontmatter)) {
-					if (key === "position") continue;
-					if (!uniqueProps.has(key)) {
-						uniqueProps.set(key, { values: new Set(), rawValues: [] });
+					if (key === "position" || val === null || val === undefined) continue;
+					if (!this.uniqueProps.has(key)) {
+						this.uniqueProps.set(key, { values: new Set(), rawValues: [] });
 					}
 					const strVal = typeof val === "object" ? JSON.stringify(val) : String(val);
-					uniqueProps.get(key)!.values.add(strVal);
-					uniqueProps.get(key)!.rawValues.push(val);
+					this.uniqueProps.get(key)!.values.add(strVal);
+					this.uniqueProps.get(key)!.rawValues.push(val);
 				}
 			}
 		}
@@ -120,7 +121,7 @@ export class BulkEditModal extends Modal {
 		this.rows = [];
 		const typeManager = (this.app as any).metadataTypeManager;
 
-		for (const [key, data] of uniqueProps.entries()) {
+		for (const [key, data] of this.uniqueProps.entries()) {
 			const isMixed = data.values.size > 1 || data.rawValues.length < this.selectedItems.length;
 			let initialValue = "";
 			if (!isMixed && data.rawValues.length > 0) {
@@ -309,7 +310,7 @@ export class BulkEditModal extends Modal {
 			valueInputEl = valueInput.inputEl;
 		}
 
-		new ValueSuggest(this.app, valueInputEl, () => row.name);
+		new ValueSuggest(this.app, valueInputEl, () => row.name, this.uniqueProps);
 	}
 
 	private updateActionOptions(dropdown: DropdownComponent, row: PropertyRowState) {
@@ -441,12 +442,14 @@ class ValueSuggest extends AbstractInputSuggest<string> {
 	app: App;
 	textInputEl: HTMLInputElement | HTMLTextAreaElement;
 	getPropName: () => string;
+	uniqueProps?: Map<string, { values: Set<string>, rawValues: any[] }>;
 
-	constructor(app: App, textInputEl: HTMLInputElement | HTMLTextAreaElement, getPropName: () => string) {
+	constructor(app: App, textInputEl: HTMLInputElement | HTMLTextAreaElement, getPropName: () => string, uniqueProps?: Map<string, { values: Set<string>, rawValues: any[] }>) {
 		super(app, textInputEl as any);
 		this.app = app;
 		this.textInputEl = textInputEl;
 		this.getPropName = getPropName;
+		this.uniqueProps = uniqueProps;
 	}
 
 	getSuggestions(inputStr: string): string[] {
@@ -457,17 +460,28 @@ class ValueSuggest extends AbstractInputSuggest<string> {
 		
 		let searchStr = "";
 		let match = false;
+		let useTags = false;
 
 		const hashMatch = textBeforeCursor.match(/#([^\s]*)$/);
 		if (hashMatch) {
-			searchStr = "#" + hashMatch[1];
+			searchStr = hashMatch[1];
 			match = true;
+			useTags = true;
 		} else if (propName === "tags") {
-			const tagMatch = textBeforeCursor.match(/([^,\s]+)$/);
+			const tagMatch = textBeforeCursor.match(/([^,\s]*)$/);
 			if (tagMatch) {
-				searchStr = "#" + tagMatch[1];
+				searchStr = tagMatch[1];
 			} else {
-				searchStr = "#";
+				searchStr = "";
+			}
+			match = true;
+			useTags = true;
+		} else if (this.uniqueProps) {
+			const tagMatch = textBeforeCursor.match(/([^,\s]*)$/);
+			if (tagMatch) {
+				searchStr = tagMatch[1];
+			} else {
+				searchStr = "";
 			}
 			match = true;
 		}
@@ -475,8 +489,30 @@ class ValueSuggest extends AbstractInputSuggest<string> {
 		if (!match) return [];
 
 		const searchLower = searchStr.toLowerCase();
-		const tags = Object.keys(this.app.metadataCache.getTags());
-		return tags.filter(tag => tag.toLowerCase().includes(searchLower)).slice(0, 20);
+
+		if (useTags) {
+			const tags = Object.keys(this.app.metadataCache.getTags());
+			return tags
+				.map(t => t.replace(/^#/, ""))
+				.filter(tag => tag.toLowerCase().includes(searchLower))
+				.slice(0, 20);
+		}
+
+		if (this.uniqueProps) {
+			const propData = this.uniqueProps.get(this.getPropName());
+			if (propData) {
+				const suggestions = Array.from(propData.values)
+					.map(v => {
+						try { return JSON.parse(v); } catch(e) { return v; }
+					})
+					.filter(v => typeof v === "string")
+					.filter(v => v.toLowerCase().includes(searchLower))
+					.slice(0, 20);
+				return suggestions;
+			}
+		}
+
+		return [];
 	}
 
 	renderSuggestion(suggestion: string, el: HTMLElement): void {
