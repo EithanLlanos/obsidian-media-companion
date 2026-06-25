@@ -1189,6 +1189,32 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 				new MoveModal(this.app, selectedItems).open();
 			});
 
+			const copyBtn = btnContainer.createEl("button", { text: "Copy Links" });
+			copyBtn.addEventListener("click", () => {
+				const links = selectedItems.map(i => `![[${i.mediaFile.path}]]`).join("\n");
+				navigator.clipboard.writeText(links);
+				new Notice(`${selectedItems.length} links copied to clipboard`);
+				this.updateActionBar();
+			});
+
+			const deleteBtn = btnContainer.createEl("button", { text: "Delete" });
+			deleteBtn.addEventListener("click", async () => {
+				new Notice(`Deleting ${selectedItems.length} items...`);
+				for (const item of selectedItems) {
+					try {
+						if (item.sidecarFile) await this.app.fileManager.trashFile(item.sidecarFile);
+						await this.app.fileManager.trashFile(item.mediaFile);
+						if (item.el) { item.el.remove(); item.el = null; }
+						this.layoutItems = this.layoutItems.filter(i => i !== item);
+					} catch (e) {
+						console.error("Failed to delete", e);
+					}
+				}
+				this.computePositions();
+				this.syncDOM();
+				this.updateActionBar();
+			});
+
 			const clearBtn = btnContainer.createEl("button", { text: "Clear Selection" });
 			clearBtn.addEventListener("click", () => {
 				for (const item of this.layoutItems) {
