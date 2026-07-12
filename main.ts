@@ -170,6 +170,16 @@ class MediaCompanionSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName('Hide media files')
+			.setDesc('Hide the original media files (images/videos) in the file explorer. (Requires restarting the plugin/app to fully apply to all existing files)')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.hideMediaFiles)
+				.onChange(async (value) => {
+					this.plugin.settings.hideMediaFiles = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
 			.setName('Extensions')
 			.setDesc('Extensions to be considered as media files, separated by commas.')
 			.addTextArea(text => text

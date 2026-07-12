@@ -1,6 +1,7 @@
 export interface MediaCompanionSettings {
 	silenceStartupNotification: boolean;
 	hideSidecar: boolean;
+	hideMediaFiles: boolean;
 	extensions: string[];
 	sidecarTemplate: string;
 
@@ -15,6 +16,7 @@ export interface MediaCompanionSettings {
 export const DEFAULT_SETTINGS: MediaCompanionSettings = {
 	silenceStartupNotification: false,
 	hideSidecar: true,
+	hideMediaFiles: false,
 	extensions: [
 		'png',
 		'jpg',
