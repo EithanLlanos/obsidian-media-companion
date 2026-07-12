@@ -51,12 +51,7 @@ export default class MediaCompanion extends Plugin {
 	registerEvents() {
 		this.mutationHandler.initializeEvents();
 
-		this.registerEvent(this.app.workspace.on("layout-change", async () => {
-			const explorers = this.app.workspace.getLeavesOfType("file-explorer");
-			for (const explorer of explorers) {
-				await this.cache.hideAll(explorer);
-			}
-		}));
+
 
 
 

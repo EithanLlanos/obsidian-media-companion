@@ -354,14 +354,4 @@ export default class Cache {
 		return mediaFile !== undefined;		
 	}
 
-	/**
-	 * Takes every file in the cache and calls the function to hide itself from the
-	 * given file explorer leaf.
-	 * @param leaf The file manager leaf to hide things from
-	 */
-	public async hideAll(leaf: WorkspaceLeaf): Promise<void> {
-		for (const file of this.files) {
-			file.sidecar.hide(leaf);
-		}
-	}
 }
