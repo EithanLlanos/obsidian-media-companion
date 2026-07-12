@@ -744,19 +744,6 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 					}
 				}
 				this.updateActionBar();
-				
-				if (evt.target !== cb && !evt.shiftKey) {
-					if (Keymap.isModEvent(evt)) {
-						const newLeaf = this.app.workspace.getLeaf("tab");
-						void newLeaf.setViewState({
-							type: VIEW_TYPE_SIDECAR,
-							state: { file: item.mediaFile.path },
-						});
-						this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
-					} else {
-						void this.openInSidebar(item.mediaFile);
-					}
-				}
 				return;
 			}
 			
@@ -816,12 +803,11 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 		if (mediaType === MediaTypes.Image) {
 			const isGif = item.mediaFile.extension.toLowerCase() === "gif";
 			
-			// For GIFs, we wrap them in a relative container to stack the canvas on top
 			if (isGif) {
 				mc.style.position = "relative";
 				
 				const img = mc.createEl("img", {
-					attr: { src: resourcePath, alt: item.mediaFile.basename },
+					attr: { src: resourcePath, alt: item.mediaFile.basename, loading: "lazy" },
 				});
 				
 				const canvas = mc.createEl("canvas", { cls: "mc-waterfall-gif-canvas" });
@@ -863,7 +849,7 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 			} else {
 				// Standard static image
 				const img = mc.createEl("img", {
-					attr: { src: resourcePath, alt: item.mediaFile.basename },
+					attr: { src: resourcePath, alt: item.mediaFile.basename, loading: "lazy" },
 				});
 				img.addEventListener("load", () => onSized(img.naturalWidth, img.naturalHeight));
 			}
