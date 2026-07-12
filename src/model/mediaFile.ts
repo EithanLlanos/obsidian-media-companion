@@ -42,23 +42,7 @@ export default class MediaFile {
 
 		f.sidecar = await Sidecar.create(file, app, plugin, sidecar);
 
-		f.hideInAll();
 		await f.update();
-	}
-
-	public hideInAll(): void {
-		const leaves = this.app.workspace.getLeavesOfType("file-explorer");
-		for (const leaf of leaves) {
-			this.hide(leaf);
-		}
-	}
-
-	public hide(leaf: any) {
-		if (!leaf) return;
-		if (!leaf.view?.fileItems) return;
-		const element = leaf.view?.fileItems[this.file.path]?.el;
-		if (!element) return;
-		element.hidden = this.plugin.settings.hideMediaFiles;
 	}
 
 	/**

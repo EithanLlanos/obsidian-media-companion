@@ -43,7 +43,6 @@ export default class Sidecar {
 		} else {
 			this.file = await this.createIfNotExists();
 		}
-		this.hideInAll();
 	}
 
 	/**
@@ -56,28 +55,6 @@ export default class Sidecar {
             await this.app.vault.create(`${this.mediaFile.path}${Sidecar.EXTENSION}`, this.plugin.settings.sidecarTemplate);
         
 		return file;
-	}
-
-	private hideInAll(): void {
-		const leaves = this.app.workspace.getLeavesOfType("file-explorer");
-
-		for (const leaf of leaves) {
-			this.hide(leaf);
-		}
-	}
-
-	/**
-	 * Hides a sidecar from a given file explorer leaf
-	 * @param leaf The file explorer leaf the sidecar should be hidden form
-	 */
-	public hide(leaf: WorkspaceLeaf) {
-		if (!leaf) return;
-		// @ts-ignore
-		if (!leaf.view?.fileItems) return;
-		// @ts-ignore
-		const element = leaf.view?.fileItems[this.file.path]?.el;
-		if (!element) return;
-		element.hidden = this.plugin.settings.hideSidecar;
 	}
 
 	/**

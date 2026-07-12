@@ -108,10 +108,32 @@ export default class MediaCompanion extends Plugin {
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.applyHideCss();
+	}
+
+	public applyHideCss() {
+		let styleEl = document.getElementById("mc-hide-css");
+		if (!styleEl) {
+			styleEl = document.createElement("style");
+			styleEl.id = "mc-hide-css";
+			document.head.appendChild(styleEl);
+		}
+
+		const rules: string[] = [];
+		if (this.settings.hideSidecar) {
+			rules.push(`.nav-file:has(.nav-file-title[data-path$=".sidecar.md"]) { display: none !important; }`);
+		}
+		if (this.settings.hideMediaFiles) {
+			const extRules = this.settings.extensions.map(ext => `.nav-file:has(.nav-file-title[data-path$=".${ext}"]) { display: none !important; }`);
+			rules.push(...extRules);
+		}
+
+		styleEl.textContent = rules.join("\n");
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		this.applyHideCss();
 		this.app.workspace.trigger("mc:settings-changed");
 	}
 }
