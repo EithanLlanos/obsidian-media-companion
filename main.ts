@@ -51,9 +51,18 @@ export default class MediaCompanion extends Plugin {
 	registerEvents() {
 		this.mutationHandler.initializeEvents();
 
-
-
-
+		this.addCommand({
+			id: "dump-dom",
+			name: "Dump File Explorer DOM",
+			callback: async () => {
+				const explorer = this.app.workspace.getLeavesOfType("file-explorer")[0];
+				if (explorer) {
+					const html = explorer.view.containerEl.innerHTML;
+					await this.app.vault.adapter.write("dom_dump.txt", html);
+					new Notice("DOM dumped to dom_dump.txt");
+				}
+			}
+		});
 
 		// When a media file is opened in a non-sidecar view (e.g. from
 		// the file explorer), redirect it to our SidecarView.
@@ -103,32 +112,10 @@ export default class MediaCompanion extends Plugin {
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-		this.applyHideCss();
-	}
-
-	public applyHideCss() {
-		let styleEl = document.getElementById("mc-hide-css");
-		if (!styleEl) {
-			styleEl = document.createElement("style");
-			styleEl.id = "mc-hide-css";
-			document.head.appendChild(styleEl);
-		}
-
-		const rules: string[] = [];
-		if (this.settings.hideSidecar) {
-			rules.push(`.nav-file:has(.nav-file-title[data-path$=".sidecar.md"]) { display: none !important; }`);
-		}
-		if (this.settings.hideMediaFiles) {
-			const extRules = this.settings.extensions.map(ext => `.nav-file:has(.nav-file-title[data-path$=".${ext}"]) { display: none !important; }`);
-			rules.push(...extRules);
-		}
-
-		styleEl.textContent = rules.join("\n");
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-		this.applyHideCss();
 		this.app.workspace.trigger("mc:settings-changed");
 	}
 }
@@ -186,15 +173,7 @@ class MediaCompanionSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		new Setting(containerEl)
-			.setName('Hide media files')
-			.setDesc('Hide the original media files (images/videos) in the file explorer. (Requires restarting the plugin/app to fully apply to all existing files)')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.hideMediaFiles)
-				.onChange(async (value) => {
-					this.plugin.settings.hideMediaFiles = value;
-					await this.plugin.saveSettings();
-				}));
+
 
 		new Setting(containerEl)
 			.setName('Extensions')
