@@ -238,6 +238,8 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 		this.clearDOM();
 		this.layoutItems = [];
 
+		console.time("[Media Companion] Waterfall Data Processing");
+
 		const seenMediaPaths = new Set<string>();
 		const itemByMediaPath = new Map<string, LayoutItem>();
 		const foldersInResult = new Set<string>();
@@ -371,8 +373,15 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 			return;
 		}
 
+		console.timeEnd("[Media Companion] Waterfall Data Processing");
+		console.time("[Media Companion] Waterfall Compute Positions");
 		this.computePositions();
+		console.timeEnd("[Media Companion] Waterfall Compute Positions");
+		
+		console.time("[Media Companion] Waterfall DOM Sync");
 		this.syncDOM();
+		console.timeEnd("[Media Companion] Waterfall DOM Sync");
+		
 		this.updateActionBar();
 	}
 
