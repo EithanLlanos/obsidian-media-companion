@@ -24,12 +24,18 @@ export default class MCVideo extends MediaFile {
 			const video = document.createElement("video");
 			video.muted = true;
 			video.preload = "metadata";
-			// Try without crossOrigin first because app://local might fail with crossOrigin="anonymous" for videos.
-			// If it throws a tainted canvas error below, we will know.
-			
+
 			const resourcePath = this.app.vault.getResourcePath(this.file);
 			
+			// Failsafe timeout in case video loading hangs
+			const timeoutId = setTimeout(() => {
+				video.src = "";
+				video.remove();
+				reject(new Error("Video extraction timed out"));
+			}, 5000);
+			
 			const onReady = async () => {
+				clearTimeout(timeoutId);
 				try {
 					const canvas = document.createElement("canvas");
 					canvas.width = video.videoWidth;
@@ -73,6 +79,7 @@ export default class MCVideo extends MediaFile {
 			});
 
 			video.addEventListener("error", (e) => {
+				clearTimeout(timeoutId);
 				console.error("Video load error in MCVideo", e);
 				reject(new Error("Video load failed"));
 			});

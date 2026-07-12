@@ -157,20 +157,29 @@ export default class Cache {
 		for (const file of files) {
 			let mediaFile;
 
-			switch (getMediaType(file.extension)) {
-				case MediaTypes.Image:
-					mediaFile = await MCImage.create(file, this.app, this.plugin);
-					break;
-				case MediaTypes.Video:
-					mediaFile = await MCVideo.create(file, this.app, this.plugin);
-					break;
-				case MediaTypes.Unknown:
-				default:
-					mediaFile = await MediaFile.create(file, this.app, this.plugin);
-					break;
+			try {
+				const createPromise = (async () => {
+					switch (getMediaType(file.extension)) {
+						case MediaTypes.Image:
+							return await MCImage.create(file, this.app, this.plugin);
+						case MediaTypes.Video:
+							return await MCVideo.create(file, this.app, this.plugin);
+						case MediaTypes.Unknown:
+						default:
+							return await MediaFile.create(file, this.app, this.plugin);
+					}
+				})();
+
+				const timeoutPromise = new Promise<never>((_, reject) => 
+					setTimeout(() => reject(new Error("Timeout")), 5000)
+				);
+
+				mediaFile = await Promise.race([createPromise, timeoutPromise]);
+				this.addFile(mediaFile);
+			} catch (e) {
+				console.warn(`Failed on ${file.name}`);
+				console.warn(e);
 			}
-                
-			this.addFile(mediaFile);
 
 			total_done++;
 			notice?.setMessage(`Media Companion: ${total_done}/${files.length} new files added\nProcessing may take a while if many new files have been added`);
