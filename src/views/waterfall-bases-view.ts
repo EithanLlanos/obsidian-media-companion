@@ -719,45 +719,43 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 		el.addEventListener("click", (evt) => {
 			if (evt.button !== 0 && evt.button !== 1) return;
 			
-			const hasSelectedItems = this.layoutItems.some(i => i.selected);
-
-			if (evt.target === cb || evt.shiftKey || hasSelectedItems) {
-				evt.preventDefault();
-				evt.stopPropagation();
+			evt.preventDefault();
+			evt.stopPropagation();
+			
+			const idx = this.layoutItems.indexOf(item);
+			
+			if (evt.shiftKey && this.lastSelectedIdx !== undefined && this.lastSelectedIdx !== -1) {
+				const start = Math.min(this.lastSelectedIdx, idx);
+				const end = Math.max(this.lastSelectedIdx, idx);
 				
-				const idx = this.layoutItems.indexOf(item);
-				
-				if (evt.shiftKey && this.lastSelectedIdx !== undefined && this.lastSelectedIdx !== -1) {
-					const start = Math.min(this.lastSelectedIdx, idx);
-					const end = Math.max(this.lastSelectedIdx, idx);
-					
-					for (let i = start; i <= end; i++) {
-						const it = this.layoutItems[i];
-						it.selected = true;
-						if (it.el) {
-							it.el.classList.add("is-selected");
-							const checkbox = it.el.querySelector(".mc-waterfall-checkbox");
-							if (checkbox) checkbox.classList.add("is-checked");
-						}
-					}
-				} else {
-					item.selected = !item.selected;
-					if (item.selected) {
-						el.classList.add("is-selected");
-						cb.classList.add("is-checked");
-						this.lastSelectedIdx = idx;
-					} else {
-						el.classList.remove("is-selected");
-						cb.classList.remove("is-checked");
-						this.lastSelectedIdx = idx;
+				for (let i = start; i <= end; i++) {
+					const it = this.layoutItems[i];
+					it.selected = true;
+					if (it.el) {
+						it.el.classList.add("is-selected");
+						const checkbox = it.el.querySelector(".mc-waterfall-checkbox");
+						if (checkbox) checkbox.classList.add("is-checked");
 					}
 				}
-				this.updateActionBar();
-				return;
+			} else {
+				item.selected = !item.selected;
+				if (item.selected) {
+					el.classList.add("is-selected");
+					cb.classList.add("is-checked");
+					this.lastSelectedIdx = idx;
+				} else {
+					el.classList.remove("is-selected");
+					cb.classList.remove("is-checked");
+					this.lastSelectedIdx = idx;
+				}
 			}
-			
-			evt.preventDefault();
+			this.updateActionBar();
+		});
 
+		el.addEventListener("dblclick", (evt) => {
+			evt.preventDefault();
+			evt.stopPropagation();
+			
 			if (Keymap.isModEvent(evt)) {
 				const newLeaf = this.app.workspace.getLeaf("tab");
 				
@@ -765,7 +763,6 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 					type: VIEW_TYPE_SIDECAR,
 					state: { file: item.mediaFile.path },
 				});
-				
 				this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
 			} else {
 				void this.openInSidebar(item.mediaFile);

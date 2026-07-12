@@ -46,6 +46,7 @@ export class SidecarView extends FileView {
 
 	constructor(leaf: WorkspaceLeaf) {
 		super(leaf);
+		this.navigation = false;
 	}
 
 	getViewType(): string {
