@@ -722,6 +722,23 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 			evt.preventDefault();
 			evt.stopPropagation();
 			
+			if (Keymap.isModEvent(evt)) {
+				const newLeaf = this.app.workspace.getLeaf("tab");
+				
+				void newLeaf.setViewState({
+					type: VIEW_TYPE_SIDECAR,
+					state: { file: item.mediaFile.path },
+				});
+				this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
+			} else {
+				void this.openInSidebar(item.mediaFile);
+			}
+		});
+
+		el.addEventListener("dblclick", (evt) => {
+			evt.preventDefault();
+			evt.stopPropagation();
+			
 			const idx = this.layoutItems.indexOf(item);
 			
 			if (evt.shiftKey && this.lastSelectedIdx !== undefined && this.lastSelectedIdx !== -1) {
@@ -750,23 +767,6 @@ export class WaterfallBasesView extends BasesView implements HoverParent {
 				}
 			}
 			this.updateActionBar();
-		});
-
-		el.addEventListener("dblclick", (evt) => {
-			evt.preventDefault();
-			evt.stopPropagation();
-			
-			if (Keymap.isModEvent(evt)) {
-				const newLeaf = this.app.workspace.getLeaf("tab");
-				
-				void newLeaf.setViewState({
-					type: VIEW_TYPE_SIDECAR,
-					state: { file: item.mediaFile.path },
-				});
-				this.app.workspace.setActiveLeaf(newLeaf, { focus: true });
-			} else {
-				void this.openInSidebar(item.mediaFile);
-			}
 		});
 
 		el.addEventListener("mouseover", (evt) => {

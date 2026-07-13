@@ -33,7 +33,6 @@ export class SidecarView extends FileView {
 	private mediaContainerEl!: HTMLElement;
 	private renameTitleEl!: HTMLElement;
 	private titleMessageEl!: HTMLElement;
-	private propertiesContainerEl!: HTMLElement;
 	private editorContainerEl!: HTMLElement;
 
 	private editorView: WidgetEditorView | null = null;
@@ -85,8 +84,6 @@ export class SidecarView extends FileView {
 		});
 		this.titleMessageEl.hidden = true;
 
-		this.propertiesContainerEl = contentEl.createDiv({ cls: "mc-sidecar-properties" });
-
 		this.editorContainerEl = contentEl.createDiv({ cls: "mc-sidecar-editor" });
 
 		this.registerEvent(
@@ -129,14 +126,6 @@ export class SidecarView extends FileView {
 			})
 		);
 
-		this.registerEvent(
-			this.app.metadataCache.on("changed", (file) => {
-				if (this.sidecarFile && file === this.sidecarFile) {
-					this.renderProperties();
-				}
-			})
-		);
-
 		if (!this.file) {
 			this.showEmptyState();
 		}
@@ -150,7 +139,6 @@ export class SidecarView extends FileView {
 		);
 
 		this.renderMediaPreview(file);
-		this.renderProperties();
 
 		this.renameTitleEl.textContent = file.basename;
 		this.renameTitleEl.hidden = false;
@@ -160,11 +148,11 @@ export class SidecarView extends FileView {
 		if (this.sidecarFile) {
 			this.editorContainerEl.empty();
 
-			// Pass the real sidecar TFile so the embedded editor can
-			// render frontmatter properties with proper file context.
+			// Pass null as TFile exactly as the original Svelte component did,
+			// so Obsidian renders the raw markdown editor without hiding the frontmatter.
 			this.editorView = (this.app as any).embedRegistry.embedByExtension.md(
 				{ app: this.app, containerEl: this.editorContainerEl },
-				this.sidecarFile, "") as WidgetEditorView;
+				null as unknown as TFile, "") as WidgetEditorView;
 
 			this.editorView.editable = true;
 			this.editorView.showEditor();
@@ -240,31 +228,6 @@ export class SidecarView extends FileView {
 			}
 		}
 	}
-
-	private renderProperties(): void {
-		this.propertiesContainerEl.empty();
-		if (!this.sidecarFile) return;
-
-		const cache = this.app.metadataCache.getFileCache(this.sidecarFile);
-		const fm = cache?.frontmatter;
-		if (!fm) return;
-
-		for (const key of Object.keys(fm)) {
-			if (key.startsWith("MC-") || key === "position") continue;
-			
-			const propEl = this.propertiesContainerEl.createDiv({ cls: "mc-sidecar-prop" });
-			const nameEl = propEl.createDiv({ cls: "mc-sidecar-prop-name", text: key });
-			const valEl = propEl.createDiv({ cls: "mc-sidecar-prop-value" });
-			
-			const val = fm[key];
-			if (Array.isArray(val)) {
-				valEl.setText(val.join(", "));
-			} else {
-				valEl.setText(val != null ? String(val) : "-");
-			}
-		}
-	}
-
 
 	private startEditorObserver(): void {
 		if (this.editorObserver) this.editorObserver.disconnect();
