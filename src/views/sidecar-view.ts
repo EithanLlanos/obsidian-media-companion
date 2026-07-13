@@ -175,6 +175,14 @@ export class SidecarView extends ItemView {
 
 			// Load content for change-tracking
 			this.fileContent = await this.app.vault.read(this.sidecarFile);
+			
+			// If file is completely empty, prepopulate with empty frontmatter
+			// so the native Properties UI appears immediately for the user.
+			if (this.fileContent.trim() === "") {
+				this.fileContent = "---\n---\n";
+				await this.app.vault.modify(this.sidecarFile, this.fileContent);
+			}
+
 			this.editorView.set(this.fileContent, true);
 
 			// Wait for the DOM to settle before hiding the inline title
