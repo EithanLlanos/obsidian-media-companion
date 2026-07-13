@@ -101,6 +101,13 @@ export class SidecarView extends ItemView {
 		this.titleMessageEl.hidden = true;
 
 		this.editorContainerEl = contentEl.createDiv({ cls: "mc-sidecar-editor" });
+		
+		this.editorView = (this.app as any).embedRegistry.embedByExtension.md(
+			{ app: this.app, containerEl: this.editorContainerEl },
+			null as unknown as TFile, "") as WidgetEditorView;
+		
+		this.editorView.editable = true;
+		this.editorView.showEditor();
 
 		this.registerEvent(
 			this.app.vault.on("rename", (file, oldPath) => {
@@ -148,8 +155,6 @@ export class SidecarView extends ItemView {
 	}
 
 	async onLoadFile(file: TFile): Promise<void> {
-		this.destroyEditor();
-
 		this.sidecarFile = this.app.vault.getFileByPath(
 			file.path + Sidecar.EXTENSION,
 		);
@@ -162,20 +167,13 @@ export class SidecarView extends ItemView {
 		this.renameTitleEl.removeClass("mc-sidecar-title-invalid");
 
 		if (this.sidecarFile) {
-			this.editorContainerEl.empty();
-
-			// Pass null as TFile exactly as the original Svelte component did,
-			// so Obsidian renders the raw markdown editor without hiding the frontmatter.
-			this.editorView = (this.app as any).embedRegistry.embedByExtension.md(
-				{ app: this.app, containerEl: this.editorContainerEl },
-				null as unknown as TFile, "") as WidgetEditorView;
-
-			this.editorView.editable = true;
-			this.editorView.showEditor();
-
+			this.editorContainerEl.show();
+			
 			// Load content for change-tracking
 			this.fileContent = await this.app.vault.read(this.sidecarFile);
-			this.editorView.set(this.fileContent, true);
+			if (this.editorView) {
+				this.editorView.set(this.fileContent, true);
+			}
 
 			// Wait for the DOM to settle before hiding the inline title
 			// and starting the mutation observer (avoids false saves
@@ -188,19 +186,8 @@ export class SidecarView extends ItemView {
 				this.startEditorObserver();
 			});
 		} else {
-			this.editorContainerEl.empty();
-			this.editorContainerEl.createEl("p", {
-				text: "No sidecar file found.",
-				cls: "mc-sidecar-empty",
-			});
+			this.editorContainerEl.hide();
 		}
-	}
-
-	async onUnloadFile(file: TFile): Promise<void> {
-		this.flushPendingChanges();
-		this.destroyEditor();
-		this.mediaContainerEl.empty();
-		this.sidecarFile = null;
 	}
 
 	async onClose(): Promise<void> {
