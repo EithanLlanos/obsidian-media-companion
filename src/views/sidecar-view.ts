@@ -1,4 +1,4 @@
-﻿import { ItemView,
+import { ItemView,
 	debounce,
 	normalizePath,
 	TFile,
@@ -168,6 +168,8 @@ export class SidecarView extends ItemView {
 				{ app: this.app, containerEl: this.editorContainerEl },
 				this.sidecarFile, "") as WidgetEditorView;
 
+			this.addChild(this.editorView as any);
+
 			this.editorView.editable = true;
 			this.editorView.showEditor();
 
@@ -264,7 +266,10 @@ export class SidecarView extends ItemView {
 			this.editorObserver = null;
 		}
 		
-		this.editorView = null;
+		if (this.editorView) {
+			this.removeChild(this.editorView as any);
+			this.editorView = null;
+		}
 	}
 
 	private flushPendingChanges(): void {
