@@ -1,6 +1,6 @@
 import {
 	debounce,
-	FileView,
+	ItemView,
 	normalizePath,
 	TFile,
 	type WorkspaceLeaf,
@@ -29,7 +29,8 @@ const ILLEGAL_FILENAME_CHARACTERS = [
  * Media Companion-reserved frontmatter properties (MC-size, MC-colors, MC-last-updated)
  * are hidden via CSS so users cannot accidentally edit them.
  */
-export class SidecarView extends FileView {
+export class SidecarView extends ItemView {
+	private _file: TFile | null = null;
 	private mediaContainerEl!: HTMLElement;
 	private renameTitleEl!: HTMLElement;
 	private titleMessageEl!: HTMLElement;
@@ -54,7 +55,22 @@ export class SidecarView extends FileView {
 	}
 
 	getDisplayText(): string {
-		return this.file?.basename ?? "Media Companion";
+		return this._file?.basename ?? "Media Companion";
+	}
+
+	async setState(state: any, result: import("obsidian").ViewStateResult): Promise<void> {
+		await super.setState(state, result);
+		if (state.file) {
+			const file = this.app.vault.getAbstractFileByPath(state.file);
+			if (file instanceof TFile) {
+				this._file = file;
+				await this.onLoadFile(file);
+			}
+		}
+	}
+
+	getState(): any {
+		return { ...super.getState(), file: this._file?.path };
 	}
 
 	getIcon(): string {
@@ -89,15 +105,15 @@ export class SidecarView extends FileView {
 		this.registerEvent(
 			this.app.vault.on("rename", (file, oldPath) => {
 				if (!(file instanceof TFile)) return;
-				if (this.file && file === this.file) {
+				if (this._file && file === this._file) {
 					const oldBasename = oldPath.split("/").pop()?.replace(/\.[^.]+$/, "") ?? "";
 
 					if (this.renameTitleEl.textContent === oldBasename) {
-						this.renameTitleEl.textContent = this.file.basename;
+						this.renameTitleEl.textContent = this._file.basename;
 					}
 
 					this.sidecarFile = this.app.vault.getFileByPath(
-						this.file.path + Sidecar.EXTENSION,
+						this._file.path + Sidecar.EXTENSION,
 					);
 				}
 			}),
@@ -113,20 +129,20 @@ export class SidecarView extends FileView {
 					this.editorView
 				) {
 					// Skip if we just wrote this file ourselves
-					if (Date.now() - this.fileContentLastEdited < 2000) return;
+					if (Date.now() - this._fileContentLastEdited < 2000) return;
 
 					const content = await this.app.vault.read(this.sidecarFile);
 					if (content !== this.editorView.data) {
 						this.editorObserver?.disconnect();
 						this.editorView.set(content, true);
-						this.fileContent = content;
+						this._fileContent = content;
 						this.startEditorObserver();
 					}
 				}
 			})
 		);
 
-		if (!this.file) {
+		if (!this._file) {
 			this.showEmptyState();
 		}
 	}
@@ -158,8 +174,8 @@ export class SidecarView extends FileView {
 			this.editorView.showEditor();
 
 			// Load content for change-tracking
-			this.fileContent = await this.app.vault.read(this.sidecarFile);
-			this.editorView.set(this.fileContent, true);
+			this._fileContent = await this.app.vault.read(this.sidecarFile);
+			this.editorView.set(this._fileContent, true);
 
 			// Wait for the DOM to settle before hiding the inline title
 			// and starting the mutation observer (avoids false saves
@@ -262,23 +278,23 @@ export class SidecarView extends FileView {
 	private saveFile(): void {
 		if (!this.sidecarFile || !this.editorView) return;
 		const data = this.editorView.data;
-		if (!data || this.fileContent === data) return;
-		this.fileContent = data;
-		this.fileContentLastEdited = Date.now();
+		if (!data || this._fileContent === data) return;
+		this._fileContent = data;
+		this._fileContentLastEdited = Date.now();
 		void this.app.vault.modify(this.sidecarFile, data);
 	}
 
 	private renameFile(): void {
-		if (!this.file) return;
+		if (!this._file) return;
 
 		const trimmed = (this.renameTitleEl.textContent || "").replace(/\r?\n|\r/g, "").trim();
-		const parentPath = this.file.parent?.path ?? "";
+		const parentPath = this._file.parent?.path ?? "";
 		
 		const newPath = normalizePath(
-			parentPath + "/" + trimmed + "." + this.file.extension,
+			parentPath + "/" + trimmed + "." + this._file.extension,
 		);
 
-		if (trimmed === this.file.basename) {
+		if (trimmed === this._file.basename) {
 			this.setTitleValid();
 			return;
 		}
@@ -298,7 +314,7 @@ export class SidecarView extends FileView {
 		}
 
 		this.setTitleValid();
-		this.app.fileManager.renameFile(this.file, newPath);
+		this.app.fileManager.renameFile(this._file, newPath);
 	}
 
 	private setTitleInvalid(): void {
