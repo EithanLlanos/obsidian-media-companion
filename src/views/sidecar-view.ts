@@ -126,7 +126,10 @@ export class SidecarView extends FileView {
 						this.startEditorObserver();
 					}
 				}
-			}),
+			})
+		);
+
+		this.registerEvent(
 			this.app.metadataCache.on("changed", (file) => {
 				if (this.sidecarFile && file === this.sidecarFile) {
 					this.renderProperties();
