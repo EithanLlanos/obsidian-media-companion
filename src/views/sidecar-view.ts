@@ -31,8 +31,9 @@ const ILLEGAL_FILENAME_CHARACTERS = [
  */
 export class SidecarView extends FileView {
 	private mediaContainerEl!: HTMLElement;
-	private renameTitleEl!: HTMLTextAreaElement;
+	private renameTitleEl!: HTMLElement;
 	private titleMessageEl!: HTMLElement;
+	private propertiesContainerEl!: HTMLElement;
 	private editorContainerEl!: HTMLElement;
 
 	private editorView: WidgetEditorView | null = null;
@@ -72,7 +73,8 @@ export class SidecarView extends FileView {
 
 		this.mediaContainerEl = contentEl.createDiv({ cls: "mc-media-preview" });
 
-		this.renameTitleEl = contentEl.createEl("textarea", { cls: "mc-sidecar-title" });
+		this.renameTitleEl = contentEl.createEl("div", { cls: "mc-sidecar-title" });
+		this.renameTitleEl.setAttribute("contenteditable", "plaintext-only");
 		this.renameTitleEl.addEventListener("input", () => this.renameDebounce());
 		this.renameTitleEl.addEventListener("keydown", (e) => this.onTitleKeyDown(e));
 		this.renameTitleEl.hidden = true;
@@ -83,6 +85,8 @@ export class SidecarView extends FileView {
 		});
 		this.titleMessageEl.hidden = true;
 
+		this.propertiesContainerEl = contentEl.createDiv({ cls: "mc-sidecar-properties" });
+
 		this.editorContainerEl = contentEl.createDiv({ cls: "mc-sidecar-editor" });
 
 		this.registerEvent(
@@ -91,8 +95,8 @@ export class SidecarView extends FileView {
 				if (this.file && file === this.file) {
 					const oldBasename = oldPath.split("/").pop()?.replace(/\.[^.]+$/, "") ?? "";
 
-					if (this.renameTitleEl.value === oldBasename) {
-						this.renameTitleEl.value = this.file.basename;
+					if (this.renameTitleEl.textContent === oldBasename) {
+						this.renameTitleEl.textContent = this.file.basename;
 					}
 
 					this.sidecarFile = this.app.vault.getFileByPath(
@@ -123,6 +127,11 @@ export class SidecarView extends FileView {
 					}
 				}
 			}),
+			this.app.metadataCache.on("changed", (file) => {
+				if (this.sidecarFile && file === this.sidecarFile) {
+					this.renderProperties();
+				}
+			})
 		);
 
 		if (!this.file) {
@@ -138,8 +147,9 @@ export class SidecarView extends FileView {
 		);
 
 		this.renderMediaPreview(file);
+		this.renderProperties();
 
-		this.renameTitleEl.value = file.basename;
+		this.renameTitleEl.textContent = file.basename;
 		this.renameTitleEl.hidden = false;
 		this.titleMessageEl.hidden = true;
 		this.renameTitleEl.removeClass("mc-sidecar-title-invalid");
@@ -228,6 +238,30 @@ export class SidecarView extends FileView {
 		}
 	}
 
+	private renderProperties(): void {
+		this.propertiesContainerEl.empty();
+		if (!this.sidecarFile) return;
+
+		const cache = this.app.metadataCache.getFileCache(this.sidecarFile);
+		const fm = cache?.frontmatter;
+		if (!fm) return;
+
+		for (const key of Object.keys(fm)) {
+			if (key.startsWith("MC-") || key === "position") continue;
+			
+			const propEl = this.propertiesContainerEl.createDiv({ cls: "mc-sidecar-prop" });
+			const nameEl = propEl.createDiv({ cls: "mc-sidecar-prop-name", text: key });
+			const valEl = propEl.createDiv({ cls: "mc-sidecar-prop-value" });
+			
+			const val = fm[key];
+			if (Array.isArray(val)) {
+				valEl.setText(val.join(", "));
+			} else {
+				valEl.setText(val != null ? String(val) : "-");
+			}
+		}
+	}
+
 
 	private startEditorObserver(): void {
 		if (this.editorObserver) this.editorObserver.disconnect();
@@ -271,7 +305,7 @@ export class SidecarView extends FileView {
 	private renameFile(): void {
 		if (!this.file) return;
 
-		const trimmed = this.renameTitleEl.value.trim();
+		const trimmed = (this.renameTitleEl.textContent || "").replace(/\r?\n|\r/g, "").trim();
 		const parentPath = this.file.parent?.path ?? "";
 		
 		const newPath = normalizePath(

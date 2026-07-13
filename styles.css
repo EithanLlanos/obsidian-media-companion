@@ -366,3 +366,25 @@
 	height: auto !important;
 	color: var(--text-normal);
 }
+.mc-sidecar-properties {
+	padding: 0 1em 1em;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+.mc-sidecar-prop {
+	display: flex;
+	gap: 8px;
+	font-size: 0.9em;
+}
+.mc-sidecar-prop-name {
+	color: var(--text-muted);
+	width: 30%;
+	min-width: 80px;
+	flex-shrink: 0;
+	font-weight: 500;
+}
+.mc-sidecar-prop-value {
+	color: var(--text-normal);
+	word-break: break-word;
+}
