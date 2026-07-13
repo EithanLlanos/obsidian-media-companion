@@ -129,13 +129,13 @@ export class SidecarView extends ItemView {
 					this.editorView
 				) {
 					// Skip if we just wrote this file ourselves
-					if (Date.now() - this._fileContentLastEdited < 2000) return;
+					if (Date.now() - this.fileContentLastEdited < 2000) return;
 
 					const content = await this.app.vault.read(this.sidecarFile);
 					if (content !== this.editorView.data) {
 						this.editorObserver?.disconnect();
 						this.editorView.set(content, true);
-						this._fileContent = content;
+						this.fileContent = content;
 						this.startEditorObserver();
 					}
 				}
@@ -174,8 +174,8 @@ export class SidecarView extends ItemView {
 			this.editorView.showEditor();
 
 			// Load content for change-tracking
-			this._fileContent = await this.app.vault.read(this.sidecarFile);
-			this.editorView.set(this._fileContent, true);
+			this.fileContent = await this.app.vault.read(this.sidecarFile);
+			this.editorView.set(this.fileContent, true);
 
 			// Wait for the DOM to settle before hiding the inline title
 			// and starting the mutation observer (avoids false saves
@@ -278,9 +278,9 @@ export class SidecarView extends ItemView {
 	private saveFile(): void {
 		if (!this.sidecarFile || !this.editorView) return;
 		const data = this.editorView.data;
-		if (!data || this._fileContent === data) return;
-		this._fileContent = data;
-		this._fileContentLastEdited = Date.now();
+		if (!data || this.fileContent === data) return;
+		this.fileContent = data;
+		this.fileContentLastEdited = Date.now();
 		void this.app.vault.modify(this.sidecarFile, data);
 	}
 
